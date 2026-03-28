@@ -55,6 +55,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install latest Bicep
+        run: az bicep upgrade
+
       - name: Build Bicep
         run: |
           az bicep build --file infra/main.bicep
