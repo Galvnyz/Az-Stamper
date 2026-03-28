@@ -285,6 +285,93 @@ Az-Stamper's function app uses a **system-assigned managed identity** — an aut
 | **Storage Account Contributor** | Storage Account | Function runtime needs file share access |
 | **Directory.Read.All** (Graph API) | Entra ID tenant | Resolve Service Principal GUIDs to display names (optional) |
 
+## Multi-Subscription Enrollment
+
+Az-Stamper supports monitoring multiple subscriptions from a single centralized function app using a hub-and-spoke model.
+
+### How It Works
+
+1. **Hub** (one-time): Deploy the function app, storage, and monitoring to a resource group (existing `main.bicep`)
+2. **Spoke** (per-subscription): Enroll additional subscriptions with a Deploy-to-Azure button that creates Event Grid + RBAC
+
+Subscriptions not explicitly configured receive the global default tags automatically.
+
+### Enroll a Subscription
+
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json)
+
+**Required parameters:**
+
+| Parameter | Description |
+|-----------|-------------|
+| `functionAppResourceId` | Full resource ID of the Az-Stamper function app (from hub deployment outputs) |
+| `functionAppPrincipalId` | Managed identity principal ID (from hub deployment outputs) |
+| `eventGridResourceGroupName` | A resource group in the target subscription for Event Grid resources |
+
+### Unenroll a Subscription
+
+```bash
+pwsh scripts/unenroll.ps1 \
+  -SubscriptionId "<subscription-id>" \
+  -FunctionAppPrincipalId "<principal-id>" \
+  -ResourceGroupName "<resource-group>"
+```
+
+Use `-WhatIf` to preview changes without applying them.
+
+### Per-Subscription Tag Overrides (Optional)
+
+Upload a `stamper.json` file to the `config` container in the hub storage account to customize tags per subscription:
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/Galvnyz/Az-Stamper/main/stamper.schema.json",
+  "subscriptions": {
+    "00000000-0000-0000-0000-000000000000": {
+      "displayName": "Production",
+      "enabled": true,
+      "tagOverrides": {
+        "Environment": { "value": "Production", "overwrite": false },
+        "CostCenter": { "value": "CC-1234", "overwrite": false }
+      },
+      "resourceTypeRules": {
+        "Microsoft.Compute/virtualMachines": {
+          "additionalTags": {
+            "ManagedBy": { "value": "InfraTeam", "overwrite": false }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Subscriptions not listed receive global default tags. Set `"enabled": false` to pause tagging for a subscription without unenrolling.
+
+### Monitoring Enrolled Subscriptions
+
+Use these KQL queries in Application Insights → Logs:
+
+```kql
+// Active subscriptions (last 24h)
+traces
+| where timestamp > ago(24h)
+| where message contains "Stamped"
+| extend SubscriptionId = extract("/subscriptions/([^/]+)", 1, tostring(customDimensions.prop__ResourceId))
+| where isnotempty(SubscriptionId)
+| summarize EventCount=count() by SubscriptionId
+| order by EventCount desc
+
+// Tag success/failure rate (last 7d)
+traces
+| where timestamp > ago(7d)
+| summarize
+    Tagged=countif(message contains "Stamped"),
+    Skipped=countif(message contains "skipping"),
+    Errors=countif(message contains "Failed")
+  by bin(timestamp, 1d)
+```
+
 ## CI/CD
 
 The repo includes GitHub Actions workflows and Dependabot configuration:

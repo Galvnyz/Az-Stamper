@@ -1,0 +1,174 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.41.2.15936",
+      "templateHash": "6186465732546442900"
+    }
+  },
+  "parameters": {
+    "functionAppResourceId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the Az-Stamper function app (e.g., /subscriptions/.../Microsoft.Web/sites/func-az-stamper)"
+      }
+    },
+    "functionAppPrincipalId": {
+      "type": "string",
+      "metadata": {
+        "description": "Principal ID (object ID) of the Az-Stamper function app managed identity"
+      }
+    },
+    "systemTopicName": {
+      "type": "string",
+      "defaultValue": "evgt-az-stamper",
+      "metadata": {
+        "description": "Name for the Event Grid system topic"
+      }
+    },
+    "eventSubscriptionName": {
+      "type": "string",
+      "defaultValue": "evgs-az-stamper",
+      "metadata": {
+        "description": "Name for the Event Grid event subscription"
+      }
+    },
+    "eventGridResourceGroupName": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource group name in the target subscription for the Event Grid system topic"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "global",
+      "metadata": {
+        "description": "Location for the Event Grid resources"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(subscription().id, parameters('functionAppPrincipalId'), 'acdd72a7-3385-48ef-bd42-f606fba81ae7')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7')]",
+        "principalId": "[parameters('functionAppPrincipalId')]",
+        "principalType": "ServicePrincipal"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(subscription().id, parameters('functionAppPrincipalId'), '4a9ae827-6dc8-4573-8ac7-8239d42aa03f')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4a9ae827-6dc8-4573-8ac7-8239d42aa03f')]",
+        "principalId": "[parameters('functionAppPrincipalId')]",
+        "principalType": "ServicePrincipal"
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "az-stamper-enrollment",
+      "resourceGroup": "[parameters('eventGridResourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "systemTopicName": {
+            "value": "[parameters('systemTopicName')]"
+          },
+          "eventSubscriptionName": {
+            "value": "[parameters('eventSubscriptionName')]"
+          },
+          "functionAppId": {
+            "value": "[parameters('functionAppResourceId')]"
+          },
+          "subscriptionId": {
+            "value": "[subscription().subscriptionId]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "4216518391563330874"
+            }
+          },
+          "parameters": {
+            "systemTopicName": {
+              "type": "string"
+            },
+            "eventSubscriptionName": {
+              "type": "string"
+            },
+            "functionAppId": {
+              "type": "string"
+            },
+            "subscriptionId": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "global"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.EventGrid/systemTopics",
+              "apiVersion": "2022-06-15",
+              "name": "[parameters('systemTopicName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "source": "[format('/subscriptions/{0}', parameters('subscriptionId'))]",
+                "topicType": "Microsoft.Resources.Subscriptions"
+              }
+            },
+            {
+              "type": "Microsoft.EventGrid/systemTopics/eventSubscriptions",
+              "apiVersion": "2022-06-15",
+              "name": "[format('{0}/{1}', parameters('systemTopicName'), parameters('eventSubscriptionName'))]",
+              "properties": {
+                "destination": {
+                  "endpointType": "AzureFunction",
+                  "properties": {
+                    "resourceId": "[format('{0}/functions/ResourceStamper', parameters('functionAppId'))]"
+                  }
+                },
+                "filter": {
+                  "includedEventTypes": [
+                    "Microsoft.Resources.ResourceWriteSuccess"
+                  ],
+                  "advancedFilters": [
+                    {
+                      "operatorType": "StringNotContains",
+                      "key": "data.operationName",
+                      "values": [
+                        "Microsoft.Resources/deployments"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.EventGrid/systemTopics', parameters('systemTopicName'))]"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

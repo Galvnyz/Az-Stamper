@@ -9,18 +9,24 @@ public class StampOrchestrator
 {
     private readonly ICallerResolver _callerResolver;
     private readonly ITagService _tagService;
-    private readonly StamperConfig _config;
+    private readonly StamperConfig _globalConfig;
+    private readonly ConfigResolver _configResolver;
+    private readonly ISubscriptionConfigProvider _subscriptionConfigProvider;
     private readonly ILogger<StampOrchestrator> _logger;
 
     public StampOrchestrator(
         ICallerResolver callerResolver,
         ITagService tagService,
-        IOptions<StamperConfig> config,
+        IOptions<StamperConfig> globalConfig,
+        ConfigResolver configResolver,
+        ISubscriptionConfigProvider subscriptionConfigProvider,
         ILogger<StampOrchestrator> logger)
     {
         _callerResolver = callerResolver;
         _tagService = tagService;
-        _config = config.Value;
+        _globalConfig = globalConfig.Value;
+        _configResolver = configResolver;
+        _subscriptionConfigProvider = subscriptionConfigProvider;
         _logger = logger;
     }
 
@@ -32,8 +38,27 @@ public class StampOrchestrator
             return;
         }
 
-        // Check ignore list
-        foreach (var pattern in _config.IgnorePatterns)
+        // Resolve per-subscription config
+        var subscriptionId = evt.SubscriptionId;
+        var resourceType = evt.ResourceType ?? "Unknown";
+        SubscriptionConfig? subConfig = null;
+
+        if (!string.IsNullOrEmpty(subscriptionId))
+        {
+            subConfig = await _subscriptionConfigProvider.GetConfigAsync(subscriptionId, cancellationToken);
+        }
+
+        var ruleSet = _configResolver.Resolve(subConfig, resourceType);
+
+        if (!ruleSet.Enabled)
+        {
+            _logger.LogInformation("Subscription {SubscriptionId} is disabled — skipping {ResourceId}",
+                subscriptionId, evt.ResourceId);
+            return;
+        }
+
+        // Check ignore list (using resolved ignore patterns)
+        foreach (var pattern in ruleSet.IgnorePatterns)
         {
             if (evt.ResourceId.Contains(pattern, StringComparison.OrdinalIgnoreCase))
             {
@@ -59,9 +84,10 @@ public class StampOrchestrator
             }
         }
 
-        _logger.LogInformation("Processing {ResourceId} — caller: {Caller}", evt.ResourceId, caller);
+        _logger.LogInformation("Processing {ResourceId} — caller: {Caller}, config: {ConfigSource}",
+            evt.ResourceId, caller, ruleSet.ConfigSource);
 
-        if (_config.TagMap.Count == 0)
+        if (ruleSet.TagMap.Count == 0)
         {
             _logger.LogInformation("Tag map is empty — nothing to stamp");
             return;
@@ -79,7 +105,7 @@ public class StampOrchestrator
         var tagsToApply = new Dictionary<string, string>();
         var timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
-        foreach (var (key, entry) in _config.TagMap)
+        foreach (var (key, entry) in ruleSet.TagMap)
         {
             if (existingTags.ContainsKey(key) && !entry.Overwrite)
             {
@@ -100,11 +126,15 @@ public class StampOrchestrator
         var success = await _tagService.SetTagsAsync(evt.ResourceId, tagsToApply, cancellationToken);
         if (success)
         {
-            _logger.LogInformation("Stamped {Count} tag(s) on {ResourceId}", tagsToApply.Count, evt.ResourceId);
+            _logger.LogInformation(
+                "Stamped {Count} tag(s) on {ResourceId} [Sub:{SubscriptionId}, Type:{ResourceType}, Config:{ConfigSource}]",
+                tagsToApply.Count, evt.ResourceId, subscriptionId, resourceType, ruleSet.ConfigSource);
         }
         else
         {
-            _logger.LogWarning("Failed to stamp tags on {ResourceId}", evt.ResourceId);
+            _logger.LogWarning(
+                "Failed to stamp tags on {ResourceId} [Sub:{SubscriptionId}, Type:{ResourceType}]",
+                evt.ResourceId, subscriptionId, resourceType);
         }
     }
 

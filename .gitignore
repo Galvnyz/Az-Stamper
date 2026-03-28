@@ -10,3 +10,4 @@ local.settings.json
 publish/
 _*.ps1
 infra/*.json
+!infra/enroll.json
