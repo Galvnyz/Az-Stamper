@@ -4,7 +4,7 @@ param functionAppId string
 param subscriptionId string
 param location string = 'global'
 
-resource systemTopic 'Microsoft.EventGrid/systemTopics@2024-06-01-preview' = {
+resource systemTopic 'Microsoft.EventGrid/systemTopics@2022-06-15' = {
   name: systemTopicName
   location: location
   properties: {
@@ -13,7 +13,7 @@ resource systemTopic 'Microsoft.EventGrid/systemTopics@2024-06-01-preview' = {
   }
 }
 
-resource eventSubscription 'Microsoft.EventGrid/systemTopics/eventSubscriptions@2024-06-01-preview' = {
+resource eventSubscription 'Microsoft.EventGrid/systemTopics/eventSubscriptions@2022-06-15' = {
   parent: systemTopic
   name: eventSubscriptionName
   properties: {
