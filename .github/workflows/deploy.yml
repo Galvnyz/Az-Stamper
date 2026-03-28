@@ -1,0 +1,56 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish
+        run: dotnet publish src/AzStamper.Functions/AzStamper.Functions.csproj -c Release -o ./publish
+
+      - name: Package
+        run: cd publish && zip -r ../deploy.zip .
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy infrastructure
+        run: |
+          az deployment group create \
+            --resource-group ${{ vars.RESOURCE_GROUP }} \
+            --template-file infra/main.bicep \
+            --parameters infra/parameters/${{ inputs.environment }}.bicepparam
+
+      - name: Deploy function code
+        run: |
+          az functionapp deployment source config-zip \
+            --resource-group ${{ vars.RESOURCE_GROUP }} \
+            --name ${{ vars.FUNCTION_APP_NAME }} \
+            --src deploy.zip
