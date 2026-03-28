@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "1320305253710777049"
+      "templateHash": "12432302109539048575"
     }
   },
   "parameters": {
@@ -37,10 +37,6 @@
         "ManagedBy": "Bicep",
         "Environment": "[parameters('environment')]"
       }
-    },
-    "stamperConfigJson": {
-      "type": "string",
-      "defaultValue": "{\"TagMap\":{\"Creator\":{\"Value\":\"{caller}\",\"Overwrite\":false},\"CreatedOn\":{\"Value\":\"{timestamp}\",\"Overwrite\":false},\"LastModifiedBy\":{\"Value\":\"{caller}\",\"Overwrite\":true},\"LastModifiedOn\":{\"Value\":\"{timestamp}\",\"Overwrite\":true},\"StampedBy\":{\"Value\":\"Az-Stamper\",\"Overwrite\":false}},\"IgnorePatterns\":[\"Microsoft.Resources/deployments\",\"Microsoft.Resources/tags\",\"Microsoft.Network/frontdoor\"]}"
     }
   },
   "resources": [
@@ -292,9 +288,6 @@
           },
           "appInsightsConnectionString": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.appInsightsConnectionString.value]"
-          },
-          "stamperConfigJson": {
-            "value": "[parameters('stamperConfigJson')]"
           }
         },
         "template": {
@@ -304,7 +297,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "3112720348759338821"
+              "templateHash": "11498158167316078739"
             }
           },
           "parameters": {
@@ -327,9 +320,6 @@
               "type": "string"
             },
             "appInsightsConnectionString": {
-              "type": "string"
-            },
-            "stamperConfigJson": {
               "type": "string"
             }
           },
@@ -401,8 +391,56 @@
                       "value": "[parameters('appInsightsConnectionString')]"
                     },
                     {
-                      "name": "StamperConfig",
-                      "value": "[parameters('stamperConfigJson')]"
+                      "name": "StamperConfig__TagMap__Creator__Value",
+                      "value": "{caller}"
+                    },
+                    {
+                      "name": "StamperConfig__TagMap__Creator__Overwrite",
+                      "value": "false"
+                    },
+                    {
+                      "name": "StamperConfig__TagMap__CreatedOn__Value",
+                      "value": "{timestamp}"
+                    },
+                    {
+                      "name": "StamperConfig__TagMap__CreatedOn__Overwrite",
+                      "value": "false"
+                    },
+                    {
+                      "name": "StamperConfig__TagMap__LastModifiedBy__Value",
+                      "value": "{caller}"
+                    },
+                    {
+                      "name": "StamperConfig__TagMap__LastModifiedBy__Overwrite",
+                      "value": "true"
+                    },
+                    {
+                      "name": "StamperConfig__TagMap__LastModifiedOn__Value",
+                      "value": "{timestamp}"
+                    },
+                    {
+                      "name": "StamperConfig__TagMap__LastModifiedOn__Overwrite",
+                      "value": "true"
+                    },
+                    {
+                      "name": "StamperConfig__TagMap__StampedBy__Value",
+                      "value": "Az-Stamper"
+                    },
+                    {
+                      "name": "StamperConfig__TagMap__StampedBy__Overwrite",
+                      "value": "false"
+                    },
+                    {
+                      "name": "StamperConfig__IgnorePatterns__0",
+                      "value": "Microsoft.Resources/deployments"
+                    },
+                    {
+                      "name": "StamperConfig__IgnorePatterns__1",
+                      "value": "Microsoft.Resources/tags"
+                    },
+                    {
+                      "name": "StamperConfig__IgnorePatterns__2",
+                      "value": "Microsoft.Network/frontdoor"
                     }
                   ]
                 }

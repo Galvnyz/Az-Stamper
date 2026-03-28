@@ -5,7 +5,7 @@ param storageAccountName string
 param storageBlobEndpoint string
 param deploymentContainerName string
 param appInsightsConnectionString string
-param stamperConfigJson string
+// StamperConfig uses __ delimited app settings for IOptions<T> binding
 
 resource flexPlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: '${name}-plan'
@@ -71,8 +71,56 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
           value: appInsightsConnectionString
         }
         {
-          name: 'StamperConfig'
-          value: stamperConfigJson
+          name: 'StamperConfig__TagMap__Creator__Value'
+          value: '{caller}'
+        }
+        {
+          name: 'StamperConfig__TagMap__Creator__Overwrite'
+          value: 'false'
+        }
+        {
+          name: 'StamperConfig__TagMap__CreatedOn__Value'
+          value: '{timestamp}'
+        }
+        {
+          name: 'StamperConfig__TagMap__CreatedOn__Overwrite'
+          value: 'false'
+        }
+        {
+          name: 'StamperConfig__TagMap__LastModifiedBy__Value'
+          value: '{caller}'
+        }
+        {
+          name: 'StamperConfig__TagMap__LastModifiedBy__Overwrite'
+          value: 'true'
+        }
+        {
+          name: 'StamperConfig__TagMap__LastModifiedOn__Value'
+          value: '{timestamp}'
+        }
+        {
+          name: 'StamperConfig__TagMap__LastModifiedOn__Overwrite'
+          value: 'true'
+        }
+        {
+          name: 'StamperConfig__TagMap__StampedBy__Value'
+          value: 'Az-Stamper'
+        }
+        {
+          name: 'StamperConfig__TagMap__StampedBy__Overwrite'
+          value: 'false'
+        }
+        {
+          name: 'StamperConfig__IgnorePatterns__0'
+          value: 'Microsoft.Resources/deployments'
+        }
+        {
+          name: 'StamperConfig__IgnorePatterns__1'
+          value: 'Microsoft.Resources/tags'
+        }
+        {
+          name: 'StamperConfig__IgnorePatterns__2'
+          value: 'Microsoft.Network/frontdoor'
         }
       ]
     }
