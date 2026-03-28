@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Galvnyz/Az-Stamper/main/stamper.schema.json",
+  "title": "Az-Stamper Subscription Configuration",
+  "description": "Per-subscription tag overrides and resource-type rules for Az-Stamper multi-subscription deployments.",
+  "type": "object",
+  "properties": {
+    "subscriptions": {
+      "type": "object",
+      "description": "Map of subscription IDs to their configuration.",
+      "additionalProperties": {
+        "$ref": "#/$defs/subscriptionConfig"
+      }
+    }
+  },
+  "required": ["subscriptions"],
+  "$defs": {
+    "subscriptionConfig": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "description": "Human-readable name for this subscription."
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether tagging is enabled for this subscription. Set to false to skip all events."
+        },
+        "tagOverrides": {
+          "type": "object",
+          "description": "Tags to add or override on top of global defaults.",
+          "additionalProperties": {
+            "$ref": "#/$defs/tagEntry"
+          }
+        },
+        "resourceTypeRules": {
+          "type": "object",
+          "description": "Per-resource-type tag rules. Keys are Azure resource type strings (e.g., Microsoft.Compute/virtualMachines).",
+          "additionalProperties": {
+            "$ref": "#/$defs/resourceTypeRule"
+          }
+        },
+        "additionalIgnorePatterns": {
+          "type": "array",
+          "description": "Additional resource ID patterns to ignore (combined with global ignore list).",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "tagEntry": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "description": "Tag value. Supports templates: {caller}, {timestamp}, {principalType}."
+        },
+        "overwrite": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to overwrite an existing tag with the same name."
+        }
+      },
+      "required": ["value"]
+    },
+    "resourceTypeRule": {
+      "type": "object",
+      "properties": {
+        "additionalTags": {
+          "type": "object",
+          "description": "Tags to add only for this resource type.",
+          "additionalProperties": {
+            "$ref": "#/$defs/tagEntry"
+          }
+        },
+        "excludeTags": {
+          "type": "array",
+          "description": "Tag names to exclude from this resource type.",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

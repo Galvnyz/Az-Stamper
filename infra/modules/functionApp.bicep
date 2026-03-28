@@ -122,6 +122,10 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
           name: 'StamperConfig__IgnorePatterns__2'
           value: 'Microsoft.Network/frontdoor'
         }
+        {
+          name: 'StamperConfig__ConfigBlobUri'
+          value: 'https://${storageAccountName}.blob.${environment().suffixes.storage}/config/stamper.json'
+        }
       ]
     }
   }
