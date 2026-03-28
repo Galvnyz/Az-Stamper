@@ -1,0 +1,9 @@
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.zip
+local.settings.json
+.azure/
+.claude/
