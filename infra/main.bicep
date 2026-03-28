@@ -11,7 +11,7 @@ param tags object = {
   ManagedBy: 'Bicep'
   Environment: environment
 }
-param stamperConfigJson string = '{"TagMap":{"Creator":{"Value":"{caller}","Overwrite":false},"CreatedOn":{"Value":"{timestamp}","Overwrite":false},"LastModifiedBy":{"Value":"{caller}","Overwrite":true},"LastModifiedOn":{"Value":"{timestamp}","Overwrite":true},"StampedBy":{"Value":"Az-Stamper","Overwrite":false}},"IgnorePatterns":["Microsoft.Resources/deployments","Microsoft.Resources/tags","Microsoft.Network/frontdoor"]}'
+// StamperConfig is defined as individual __ delimited app settings in functionApp.bicep
 
 // Deploy storage first (no MI dependency)
 module storage 'modules/storage.bicep' = {
@@ -44,7 +44,6 @@ module functionApp 'modules/functionApp.bicep' = {
     storageBlobEndpoint: storage.outputs.primaryBlobEndpoint
     deploymentContainerName: storage.outputs.deploymentContainerName
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
-    stamperConfigJson: stamperConfigJson
   }
 }
 

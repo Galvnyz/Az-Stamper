@@ -1,0 +1,14 @@
+{
+  "extensions": [
+    {
+      "name": "EventGrid",
+      "typeName": "Microsoft.Azure.WebJobs.Extensions.EventGrid.EventGridWebJobsStartup, Microsoft.Azure.WebJobs.Extensions.EventGrid, Version=3.5.0.0, Culture=neutral, PublicKeyToken=014045d636e89289",
+      "hintPath": "./.azurefunctions/Microsoft.Azure.WebJobs.Extensions.EventGrid.dll"
+    },
+    {
+      "name": "Startup",
+      "typeName": "Microsoft.Azure.WebJobs.Extensions.FunctionMetadataLoader.Startup, Microsoft.Azure.WebJobs.Extensions.FunctionMetadataLoader, Version=1.0.0.0, Culture=neutral, PublicKeyToken=551316b6919f366c",
+      "hintPath": "./.azurefunctions/Microsoft.Azure.WebJobs.Extensions.FunctionMetadataLoader.dll"
+    }
+  ]
+}

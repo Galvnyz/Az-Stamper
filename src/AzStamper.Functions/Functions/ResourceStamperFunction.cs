@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Azure.Messaging.EventGrid;
 using AzStamper.Core;
 using AzStamper.Core.Models;
@@ -24,44 +25,54 @@ public class ResourceStamperFunction
     {
         _logger.LogInformation("Event received: {Subject} ({EventType})", eventGridEvent.Subject, eventGridEvent.EventType);
 
-        var data = eventGridEvent.Data?.ToObjectFromJson<Dictionary<string, object>>();
-        if (data is null)
+        if (eventGridEvent.Data is null)
         {
             _logger.LogWarning("Event data is null — skipping");
             return;
         }
 
+        var data = eventGridEvent.Data.ToObjectFromJson<JsonElement>();
+
         var evt = new ResourceEvent
         {
-            ResourceId = data.TryGetValue("resourceUri", out var uri) ? uri?.ToString() : null,
-            PrincipalType = GetNestedValue(data, "authorization", "evidence", "principalType"),
-            PrincipalId = GetNestedValue(data, "authorization", "evidence", "principalId"),
+            ResourceId = GetProperty(data, "resourceUri"),
+            PrincipalType = GetNestedProperty(data, "authorization", "evidence", "principalType"),
+            PrincipalId = GetNestedProperty(data, "authorization", "evidence", "principalId"),
             Caller = GetClaimValue(data, "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn")
         };
+
+        _logger.LogInformation("Parsed event — ResourceId: {ResourceId}, Caller: {Caller}, PrincipalType: {PrincipalType}",
+            evt.ResourceId, evt.Caller, evt.PrincipalType);
 
         await _orchestrator.ProcessAsync(evt, cancellationToken);
     }
 
-    private static string? GetNestedValue(Dictionary<string, object> data, params string[] keys)
+    private static string? GetProperty(JsonElement element, string propertyName)
     {
-        object? current = data;
-        foreach (var key in keys)
-        {
-            if (current is Dictionary<string, object> dict && dict.TryGetValue(key, out var next))
-                current = next;
-            else
-                return null;
-        }
-        return current?.ToString();
+        if (element.TryGetProperty(propertyName, out var value) && value.ValueKind != JsonValueKind.Null)
+            return value.ToString();
+        return null;
     }
 
-    private static string? GetClaimValue(Dictionary<string, object> data, string claimType)
+    private static string? GetNestedProperty(JsonElement element, params string[] path)
     {
-        if (data.TryGetValue("claims", out var claimsObj) &&
-            claimsObj is Dictionary<string, object> claims &&
-            claims.TryGetValue(claimType, out var value))
+        var current = element;
+        foreach (var key in path)
         {
-            return value?.ToString();
+            if (current.ValueKind != JsonValueKind.Object || !current.TryGetProperty(key, out current))
+                return null;
+        }
+        return current.ValueKind != JsonValueKind.Null ? current.ToString() : null;
+    }
+
+    private static string? GetClaimValue(JsonElement data, string claimType)
+    {
+        if (data.TryGetProperty("claims", out var claims) &&
+            claims.ValueKind == JsonValueKind.Object &&
+            claims.TryGetProperty(claimType, out var value) &&
+            value.ValueKind != JsonValueKind.Null)
+        {
+            return value.ToString();
         }
         return null;
     }
