@@ -10,6 +10,7 @@ public class StampOrchestratorTests
 {
     private readonly Mock<ICallerResolver> _callerResolver;
     private readonly Mock<ITagService> _tagService;
+    private readonly Mock<ISubscriptionConfigProvider> _configProvider;
     private readonly Mock<ILogger<StampOrchestrator>> _logger;
 
     private static readonly StamperConfig DefaultConfig = new()
@@ -32,13 +33,21 @@ public class StampOrchestratorTests
     {
         _callerResolver = new Mock<ICallerResolver>();
         _tagService = new Mock<ITagService>();
+        _configProvider = new Mock<ISubscriptionConfigProvider>();
         _logger = new Mock<ILogger<StampOrchestrator>>();
     }
 
     private StampOrchestrator CreateOrchestrator(StamperConfig? config = null)
     {
         var options = Options.Create(config ?? DefaultConfig);
-        return new StampOrchestrator(_callerResolver.Object, _tagService.Object, options, _logger.Object);
+        var configResolver = new ConfigResolver(options);
+        return new StampOrchestrator(
+            _callerResolver.Object,
+            _tagService.Object,
+            options,
+            configResolver,
+            _configProvider.Object,
+            _logger.Object);
     }
 
     [Fact]
