@@ -1,68 +1,110 @@
 # Az-Stamper
 
-Automatically stamps Azure resources with configurable metadata tags (creator identity, timestamps, static labels) via an Event Grid-triggered Azure Function.
+Az-Stamper solves a fundamental Azure governance problem: **it's surprisingly hard to know who created a resource.**
 
-Inspired by [TagWithCreator](https://github.com/anwather/TagWithCreator) by Anthony Watherston.
+When you create a VM, storage account, or any other resource in Azure, you don't interact with the resource directly. Instead, your request goes through **Azure Resource Manager (ARM)** — the control plane that handles all resource operations. ARM authenticates your identity, validates your permissions, and executes the deployment. The actual creator information lives in ARM's activity log as a claim on the API call, but:
+
+- **Activity logs expire after 90 days** — after that, the creator information is gone forever
+- **The creator isn't visible on the resource itself** — you have to dig through logs to find it
+- **ARM deployments obscure the real caller** — if a user deploys via a pipeline, the activity log shows the pipeline's Service Principal, not the human who triggered it
+- **There's no built-in "created by" property** on Azure resources
+
+Az-Stamper fixes this by intercepting the ARM event at creation time and writing the caller's identity directly onto the resource as **tags** — key-value labels that are permanently attached to the resource, visible in the portal, queryable in Azure Resource Graph, and included in billing exports.
+
+## What It Does
+
+When someone (or something) creates or modifies an Azure resource, Azure generates an event. Az-Stamper listens for these events and immediately stamps the resource with tags like:
+
+| Tag | Example Value | What It Tells You |
+|-----|--------------|-------------------|
+| **Creator** | `alice@contoso.com` | Who originally created this resource |
+| **CreatedOn** | `2026-03-28T10:17:41Z` | When it was created |
+| **LastModifiedBy** | `bob@contoso.com` | Who last changed it |
+| **LastModifiedOn** | `2026-03-28T14:32:15Z` | When it was last changed |
+| **StampedBy** | `Az-Stamper` | Confirms automated tagging is working |
+
+The `Creator` and `CreatedOn` tags are set once and never overwritten — even if the resource is modified later, you always know who originally created it. The `LastModifiedBy` and `LastModifiedOn` tags update on every change, giving you a running record of who touched it last.
+
+## How It Works
+
+Az-Stamper uses three Azure services working together:
+
+```
+1. Someone creates a VM, storage account, or any Azure resource
+        ↓
+2. Azure Event Grid notices and sends a "ResourceWriteSuccess" event
+        ↓
+3. Az-Stamper (an Azure Function) receives the event, reads who
+   triggered it, and writes tags onto the resource
+```
+
+**Azure Event Grid** is a messaging service built into Azure. It watches for things happening in your subscription (resources created, deleted, modified) and can route those events to handlers. Az-Stamper registers as a handler for `ResourceWriteSuccess` events — the event type Azure fires whenever a resource is created or updated successfully.
+
+**Azure Functions** is a serverless compute service — you deploy code that runs only when triggered, and you pay only for the time it executes. Az-Stamper uses a **Flex Consumption** plan, which means it scales to zero when idle (costing nothing) and spins up automatically when an event arrives. For a typical dev/test subscription, the monthly cost is effectively zero (well within Azure's free grant of 1 million executions/month).
+
+**Managed Identity** is how the function authenticates to Azure without passwords or API keys. When deployed, the function app gets a system-assigned identity (like a service account) that Azure manages automatically. Bicep assigns this identity the permissions it needs: `Tag Contributor` to write tags, and `Reader` to look up who Service Principals are.
 
 ## Architecture
 
 ```
-Azure Subscription Activity Log
-  → Event Grid System Topic (subscription-scoped, filters ResourceWriteSuccess)
-    → Azure Function (.NET 8 isolated worker, Flex Consumption)
-      → Resolve caller identity (UPN → Service Principal display name → raw principalId)
-        → Apply configurable tag map with overwrite semantics
+Azure Subscription
+  │
+  ├─ Event Grid System Topic (watches for resource events)
+  │     │
+  │     └─ Event Subscription (filters ResourceWriteSuccess → sends to Function)
+  │
+  └─ Resource Group: rg-az-stamper-dev
+        │
+        ├─ Function App (Flex Consumption, .NET 8, Linux)
+        │     └─ ResourceStamper function (Event Grid trigger)
+        │
+        ├─ Storage Account (function runtime, managed identity auth)
+        ├─ App Service Plan (Flex Consumption — serverless)
+        ├─ Application Insights (monitoring & logging)
+        └─ Log Analytics Workspace (centralized log storage)
 ```
 
-**Resources deployed by Bicep:**
+All infrastructure is defined as **Bicep** templates (Azure's infrastructure-as-code language). This means the entire deployment is repeatable, version-controlled, and reviewable — no portal clicking required.
 
-| Resource | Purpose |
-|----------|---------|
-| Storage Account | Function runtime (managed identity, no keys) |
-| Flex Consumption App Service Plan | Serverless hosting, scale to zero |
-| Function App | Runs Az-Stamper with system-assigned managed identity |
-| Log Analytics Workspace | Centralized logging |
-| Application Insights | Function monitoring and diagnostics |
-| Event Grid System Topic | Listens to subscription-level resource events |
-| Event Grid Subscription | Filters `ResourceWriteSuccess` and routes to function |
+## Configuration
 
-## Tag Configuration
+### How Tags Are Configured
 
-Tags are defined as app settings using the `StamperConfig__` prefix. Each tag has a `Value` (template string) and `Overwrite` flag (whether to update existing tags).
+Tags are controlled entirely through the Function App's **application settings** (environment variables). You don't need to change any code to add, remove, or modify tags. Each tag requires two settings:
 
-### Default Tags
+```
+StamperConfig__TagMap__<TagName>__Value     = <template or literal>
+StamperConfig__TagMap__<TagName>__Overwrite = true | false
+```
 
-| Tag | Template | Overwrite | Behavior |
-|-----|----------|-----------|----------|
-| Creator | `{caller}` | false | Set once on resource creation, never overwritten |
-| CreatedOn | `{timestamp}` | false | ISO 8601 UTC timestamp, set once |
-| LastModifiedBy | `{caller}` | true | Updated on every resource write event |
-| LastModifiedOn | `{timestamp}` | true | Updated on every resource write event |
-| StampedBy | `Az-Stamper` | false | Static label identifying the stamping system |
+- **Value** is what gets written to the tag. It can be a literal string like `Az-Stamper` or a template variable like `{caller}`.
+- **Overwrite** controls whether the tag updates on subsequent resource modifications. Set to `false` for "set once" tags (like Creator), `true` for "always update" tags (like LastModifiedBy).
 
 ### Template Variables
 
-| Variable | Resolves To |
-|----------|-------------|
-| `{caller}` | UPN (e.g., `user@contoso.com`), Service Principal display name, or raw principal ID |
-| `{timestamp}` | UTC time in ISO 8601 format (`yyyy-MM-ddTHH:mm:ssZ`) |
-| `{principalType}` | `User` or `ServicePrincipal` |
-| Any other string | Used as a literal value |
+These placeholders get replaced with real values when the tag is written:
 
-### Adding or Modifying Tags
+| Variable | Resolves To | Example |
+|----------|-------------|---------|
+| `{caller}` | The identity that triggered the event | `alice@contoso.com` or `MyServicePrincipal` |
+| `{timestamp}` | Current UTC time in ISO 8601 format | `2026-03-28T10:17:41Z` |
+| `{principalType}` | Whether the caller is a user or automation | `User` or `ServicePrincipal` |
+| Anything else | Used as-is (literal value) | `Az-Stamper`, `Finance`, `Production` |
 
-Tags are configured via app settings in the format `StamperConfig__TagMap__<TagName>__Value` and `StamperConfig__TagMap__<TagName>__Overwrite`. To add a new tag, add two app settings to the Function App:
+### Adding a New Tag
+
+To add a `Department` tag that gets set once and never changes:
 
 ```
-StamperConfig__TagMap__CostCenter__Value = Finance
-StamperConfig__TagMap__CostCenter__Overwrite = false
+StamperConfig__TagMap__Department__Value     = Engineering
+StamperConfig__TagMap__Department__Overwrite = false
 ```
 
-To change the overwrite behavior of an existing tag, update the `Overwrite` setting to `true` or `false`.
+You can set these in the Azure Portal (Function App → Configuration → Application settings) or add them to the Bicep template in `infra/modules/functionApp.bicep`.
 
 ### Ignore Patterns
 
-Resource types matching these patterns are skipped (prevents infinite loops and unnecessary processing):
+Some resource types should never be tagged. For example, tagging a "tag" resource would create an infinite loop (tag write → event → tag write → event...). The ignore list prevents this:
 
 ```
 StamperConfig__IgnorePatterns__0 = Microsoft.Resources/deployments
@@ -70,66 +112,83 @@ StamperConfig__IgnorePatterns__1 = Microsoft.Resources/tags
 StamperConfig__IgnorePatterns__2 = Microsoft.Network/frontdoor
 ```
 
-To add more patterns, increment the index (e.g., `__3`, `__4`).
+If Az-Stamper is tagging a resource type you want to exclude, add another entry with the next index number (e.g., `__3`). The value is matched against the resource's provider path — for example, `Microsoft.Compute/virtualMachines` would skip all VMs.
+
+### Caller Identity Resolution
+
+When a user creates a resource, their UPN (e.g., `alice@contoso.com`) is embedded in the event and used directly. When automation (a Service Principal or Managed Identity) creates a resource, Az-Stamper attempts to look up its friendly display name via the Microsoft Graph API. If that fails (missing permissions), it falls back to the raw principal ID (a GUID). To enable display name resolution, grant the function's managed identity the `Directory.Read.All` Graph API permission (see Step 7 in deployment).
 
 ## Deployment
 
-### Prerequisites
+### What You'll Need
 
-- Azure subscription with Owner or Contributor role
-- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) with Bicep (`az bicep install`)
-- [Azure Functions Core Tools v4](https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local) (`func`)
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- A GitHub account (for CI/CD and Dependabot)
+| Tool | What It's For | Install |
+|------|---------------|---------|
+| **Azure CLI** | Deploy infrastructure and manage Azure resources | [Install](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) |
+| **Bicep** | Azure's infrastructure-as-code language (used by our templates) | `az bicep install` (included with Azure CLI) |
+| **Azure Functions Core Tools v4** | Build and deploy the function code | [Install](https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local) |
+| **.NET 8 SDK** | Build the C# function project | [Install](https://dotnet.microsoft.com/download/dotnet/8.0) |
+| **Azure PowerShell** (Az module) | Create the Entra ID app registration and RBAC assignments | `Install-Module Az -Scope CurrentUser` |
 
-### Step 1: Create Entra ID App Registration (OIDC)
+You also need an Azure subscription where you have **Owner** or **Contributor + User Access Administrator** permissions.
 
-Create an app registration with a federated credential so GitHub Actions can deploy without secrets.
+### Step 1: Create an Entra ID App Registration
+
+GitHub Actions needs a way to authenticate to Azure to deploy code and infrastructure. Instead of storing passwords as secrets, we use **OIDC federated credentials** — GitHub proves its identity to Azure using a token, and Azure trusts it based on a pre-configured trust relationship. No secrets to rotate.
 
 ```powershell
-# Create app registration
-$app = New-AzADApplication -DisplayName "Az-Stamper-Deploy"
+Connect-AzAccount
 
-# Create service principal
+# Create the app registration (like a service account for deployments)
+$app = New-AzADApplication -DisplayName "Az-Stamper-Deploy"
 $sp = New-AzADServicePrincipal -ApplicationId $app.AppId
 
-# Add federated credential for GitHub Actions
+# Tell Azure to trust GitHub Actions for the "dev" environment
 New-AzADAppFederatedCredential -ApplicationObjectId $app.Id `
     -Name "github-actions-dev" `
     -Issuer "https://token.actions.githubusercontent.com" `
     -Subject "repo:<YOUR_ORG>/Az-Stamper:environment:dev" `
     -Audience @("api://AzureADTokenExchange")
 
-# Note these values for GitHub secrets
-Write-Host "AZURE_CLIENT_ID: $($app.AppId)"
-Write-Host "AZURE_TENANT_ID: $((Get-AzContext).Tenant.Id)"
+# Save these — you'll need them in Step 3
+Write-Host "AZURE_CLIENT_ID:       $($app.AppId)"
+Write-Host "AZURE_TENANT_ID:       $((Get-AzContext).Tenant.Id)"
 Write-Host "AZURE_SUBSCRIPTION_ID: $((Get-AzContext).Subscription.Id)"
+Write-Host "SP_OBJECT_ID:          $($sp.Id)"
 ```
 
-### Step 2: Create Resource Group and Assign RBAC
+> Replace `<YOUR_ORG>` with your GitHub organization or username.
+
+### Step 2: Create the Resource Group and Assign Permissions
+
+The resource group is the container for all Az-Stamper resources. The deployment service principal needs `Contributor` (to create resources) and `User Access Administrator` (to assign roles to the function's managed identity).
 
 ```powershell
 $rgName = "rg-az-stamper-dev"
 
 New-AzResourceGroup -Name $rgName -Location "eastus" -Force
 
-# Grant the deploy SP permissions to deploy and assign roles
+# Let the deploy SP create resources and assign roles
 New-AzRoleAssignment -ObjectId $sp.Id -RoleDefinitionName "Contributor" -ResourceGroupName $rgName
 New-AzRoleAssignment -ObjectId $sp.Id -RoleDefinitionName "User Access Administrator" -ResourceGroupName $rgName
 ```
 
-### Step 3: Configure GitHub Environment
+### Step 3: Configure GitHub Environment Secrets
 
-1. Go to **Settings → Environments → New environment** → create `dev`
-2. Add **secrets**:
-   - `AZURE_CLIENT_ID` — from Step 1
-   - `AZURE_TENANT_ID` — from Step 1
-   - `AZURE_SUBSCRIPTION_ID` — from Step 1
-3. Add **variables**:
+GitHub Environments let you scope secrets and variables to specific deployment targets (dev, prod, etc.) and add protection rules like required reviewers.
+
+1. In your GitHub repo, go to **Settings → Environments → New environment** → name it `dev`
+2. Add these **secrets** (the values from Step 1):
+   - `AZURE_CLIENT_ID`
+   - `AZURE_TENANT_ID`
+   - `AZURE_SUBSCRIPTION_ID`
+3. Add these **variables**:
    - `RESOURCE_GROUP` = `rg-az-stamper-dev`
    - `FUNCTION_APP_NAME` = `func-az-stamper-dev`
 
 ### Step 4: Deploy Infrastructure
+
+This creates all Azure resources using the Bicep templates. The deployment takes about 2 minutes.
 
 ```bash
 az deployment group create \
@@ -138,43 +197,46 @@ az deployment group create \
   --parameters infra/parameters/dev.bicepparam
 ```
 
-Note the outputs — you'll need `functionAppId` and `principalId` for the next steps.
+The command outputs three values you'll need for later steps. Save them:
+- `functionAppName` — the function app's name
+- `functionAppId` — the function app's full Azure resource ID
+- `principalId` — the managed identity's object ID
 
 ### Step 5: Deploy Function Code
 
-Use Azure Functions Core Tools (handles Flex Consumption deployment correctly):
+Azure Functions Core Tools handles the packaging and deployment correctly for Flex Consumption (which uses blob-based deployment under the hood).
 
 ```bash
 cd src/AzStamper.Functions
 func azure functionapp publish func-az-stamper-dev --dotnet-isolated
 ```
 
-Verify the function is detected:
-```bash
-func azure functionapp list-functions func-az-stamper-dev
-# Should show: ResourceStamper - [eventGridTrigger]
-```
+You should see `ResourceStamper - [eventGridTrigger]` in the output, confirming the function was detected.
 
 ### Step 6: Deploy Event Grid Subscription
 
-This is a separate subscription-scoped deployment that creates the Event Grid system topic, event subscription, and assigns Reader + Tag Contributor roles to the function's managed identity.
+This step connects the dots — it creates the Event Grid system topic that watches your subscription for resource events, and an event subscription that routes those events to your function. It also assigns the `Reader` and `Tag Contributor` roles to the function's managed identity at the subscription level.
+
+This is a **subscription-scoped** deployment (not resource group-scoped), because Event Grid needs to watch the entire subscription.
 
 ```bash
 az deployment sub create \
   --location eastus \
   --template-file infra/main.sub.bicep \
   --parameters \
-    functionAppId=<FUNCTION_APP_ID from Step 4> \
-    functionAppPrincipalId=<PRINCIPAL_ID from Step 4> \
-    resourceGroupName=rg-az-stamper-dev
+    functionAppId="<functionAppId from Step 4>" \
+    functionAppPrincipalId="<principalId from Step 4>" \
+    resourceGroupName="rg-az-stamper-dev"
 ```
 
 ### Step 7: Grant Graph API Permission (Optional)
 
-Required only if you want Service Principal display names resolved (instead of raw principal IDs).
+When a Service Principal or Managed Identity creates a resource, the event contains only a GUID (principal ID). To resolve this to a friendly name (e.g., "My-Deployment-Pipeline"), Az-Stamper needs permission to query Microsoft Graph.
+
+This step requires **Entra ID Global Administrator** or **Privileged Role Administrator** permissions:
 
 ```powershell
-$miPrincipalId = "<PRINCIPAL_ID from Step 4>"
+$miPrincipalId = "<principalId from Step 4>"
 $graphSp = Get-AzADServicePrincipal -ApplicationId "00000003-0000-0000-c000-000000000000"
 $role = $graphSp.AppRole | Where-Object { $_.Value -eq "Directory.Read.All" }
 New-AzADServicePrincipalAppRoleAssignment `
@@ -183,49 +245,57 @@ New-AzADServicePrincipalAppRoleAssignment `
     -AppRoleId $role.Id
 ```
 
-### Step 8: Verify
+If you skip this step, Service Principal-created resources will be tagged with the raw GUID instead of a display name. Everything else works normally.
 
-Create a test resource and check if tags are applied:
+### Step 8: Verify It Works
+
+Create a test resource and check if tags appear:
 
 ```bash
-# Create test resource
+# Create a test storage account
 az storage account create \
   --name stazstampertest \
   --resource-group rg-az-stamper-dev \
   --sku Standard_LRS
 
-# Wait 60-90 seconds, then check tags
-az tag list --resource-id /subscriptions/<SUB_ID>/resourceGroups/rg-az-stamper-dev/providers/Microsoft.Storage/storageAccounts/stazstampertest
+# Wait 60-90 seconds for the event to flow through
+# (first invocation has a cold start delay)
+
+# Check the tags
+az tag list \
+  --resource-id /subscriptions/<SUB_ID>/resourceGroups/rg-az-stamper-dev/providers/Microsoft.Storage/storageAccounts/stazstampertest
 ```
 
-Expected tags: `Creator`, `CreatedOn`, `LastModifiedBy`, `LastModifiedOn`, `StampedBy`.
+You should see all five tags: `Creator`, `CreatedOn`, `LastModifiedBy`, `LastModifiedOn`, `StampedBy`.
 
 ```bash
-# Clean up test resource
+# Clean up
 az storage account delete --name stazstampertest --resource-group rg-az-stamper-dev --yes
 ```
 
-## RBAC Requirements
+## Permissions
 
-These roles are automatically assigned by the Bicep templates:
+Az-Stamper's function app uses a **system-assigned managed identity** — an automatically-managed service account that requires no passwords or key rotation. The Bicep templates assign these roles automatically:
 
-| Role | Scope | Assigned To | Purpose |
-|------|-------|-------------|---------|
-| Storage Blob Data Owner | Storage Account | Function MI | Function runtime blob access |
-| Storage Account Contributor | Storage Account | Function MI | Function runtime file share |
-| Reader | Subscription | Function MI | Resolve Service Principal details |
-| Tag Contributor | Subscription | Function MI | Read and write resource tags |
-| Directory.Read.All (Graph) | Entra ID tenant | Function MI | Resolve SP display names (optional) |
+| Role | Where | Why |
+|------|-------|-----|
+| **Tag Contributor** | Subscription | Read existing tags and write new ones on any resource |
+| **Reader** | Subscription | Look up resource details and Service Principal information |
+| **Storage Blob Data Owner** | Storage Account | Function runtime needs blob access for deployment packages |
+| **Storage Account Contributor** | Storage Account | Function runtime needs file share access |
+| **Directory.Read.All** (Graph API) | Entra ID tenant | Resolve Service Principal GUIDs to display names (optional) |
 
 ## CI/CD
 
+The repo includes GitHub Actions workflows and Dependabot configuration:
+
 | Workflow | Trigger | What It Does |
 |----------|---------|-------------|
-| **CI** (`ci.yml`) | Push to `main`, PRs | Build, test, format check, Bicep validation |
-| **Deploy** (`deploy.yml`) | `workflow_dispatch` | Deploy infra + code to selected environment |
-| **Dependabot** | Weekly | Opens PRs for NuGet and GitHub Actions updates |
+| **CI** | Push to `main`, pull requests | Builds the solution, runs 23 unit tests, checks code formatting, validates Bicep templates |
+| **Deploy** | Manual trigger (`workflow_dispatch`) | Deploys infrastructure and function code to the selected environment |
+| **Dependabot** | Weekly (automatic) | Opens pull requests when NuGet packages or GitHub Actions have updates |
 
-Auto-merge is enabled — Dependabot PRs merge automatically once CI passes.
+Auto-merge is enabled — Dependabot PRs merge automatically once CI passes, keeping dependencies current without manual intervention.
 
 ## Development
 
@@ -233,17 +303,41 @@ Auto-merge is enabled — Dependabot PRs merge automatically once CI passes.
 # Build
 dotnet build Az-Stamper.sln
 
-# Test (23 tests)
+# Run tests (23 unit tests, no Azure credentials needed)
 dotnet test Az-Stamper.sln
 
-# Format check
+# Check code formatting
 dotnet format Az-Stamper.sln --verify-no-changes
 
-# Run locally
+# Run locally (requires Azure Functions Core Tools + local.settings.json)
 cd src/AzStamper.Functions
 func start
 ```
 
+### Project Structure
+
+```
+src/
+  AzStamper.Core/          Business logic (no Azure Functions dependency)
+    Models/                Configuration POCOs and event model
+    Services/              Tag operations and identity resolution (behind interfaces)
+    StampOrchestrator.cs   Core flow: resolve caller → check ignore list → stamp tags
+  AzStamper.Functions/     Azure Functions entry point (thin adapter)
+    Functions/             Event Grid trigger function
+    Program.cs             Dependency injection and configuration binding
+tests/
+  AzStamper.Core.Tests/    Unit tests (xUnit + Moq, mocks all Azure SDK calls)
+infra/
+  main.bicep               Resource group deployment (storage, function, monitoring)
+  main.sub.bicep           Subscription deployment (Event Grid, RBAC)
+  modules/                 Individual Bicep modules
+  parameters/              Environment-specific parameter files
+```
+
+## Cost
+
+On a Flex Consumption plan, Az-Stamper costs effectively **$0/month** for small to medium subscriptions. Azure provides a free grant of 1 million executions and 400,000 GB-seconds per month. A typical dev subscription generating a few dozen resource events per day won't come close to these limits. The only fixed cost is the storage account (~$0.02/month).
+
 ## License
 
-[MIT](LICENSE) — Inspired by original work by Anthony Watherston.
+[MIT](LICENSE) — Inspired by original work by [Anthony Watherston](https://github.com/anwather/TagWithCreator).
