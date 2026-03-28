@@ -7,3 +7,6 @@ obj/
 local.settings.json
 .azure/
 .claude/
+publish/
+_*.ps1
+infra/*.json
