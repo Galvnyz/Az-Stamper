@@ -4,13 +4,19 @@ param systemTopicName string = 'evgt-az-stamper'
 param eventSubscriptionName string = 'evgs-az-stamper'
 param functionAppId string
 param functionAppPrincipalId string
+param resourceGroupName string
+param location string = 'eastus'
 
+// Event Grid module deploys into the resource group (system topics are RG-scoped)
 module eventGrid 'modules/eventGrid.bicep' = {
   name: 'eventGrid'
+  scope: resourceGroup(resourceGroupName)
   params: {
     systemTopicName: systemTopicName
     eventSubscriptionName: eventSubscriptionName
     functionAppId: functionAppId
+    subscriptionId: subscription().subscriptionId
+    location: location
   }
 }
 

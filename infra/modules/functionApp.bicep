@@ -5,10 +5,6 @@ param storageAccountName string
 param appInsightsConnectionString string
 param stamperConfigJson string
 
-resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
-  name: storageAccountName
-}
-
 resource flexPlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: '${name}-plan'
   location: location
