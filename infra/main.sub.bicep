@@ -5,7 +5,7 @@ param eventSubscriptionName string = 'evgs-az-stamper'
 param functionAppId string
 param functionAppPrincipalId string
 param resourceGroupName string
-param location string = 'eastus'
+param location string = 'global'
 
 // Event Grid module deploys into the resource group (system topics are RG-scoped)
 module eventGrid 'modules/eventGrid.bicep' = {

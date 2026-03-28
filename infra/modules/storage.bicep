@@ -1,7 +1,7 @@
 param name string
 param location string
 param tags object
-param functionAppPrincipalId string
+param deploymentContainerName string = 'deployments'
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: name
@@ -18,25 +18,17 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   }
 }
 
-resource blobDataOwnerRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccount.id, functionAppPrincipalId, 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')
-  scope: storageAccount
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')
-    principalId: functionAppPrincipalId
-    principalType: 'ServicePrincipal'
-  }
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
+  parent: storageAccount
+  name: 'default'
 }
 
-resource storageContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccount.id, functionAppPrincipalId, '17d1049b-9a84-46fb-8f53-869881c3d3ab')
-  scope: storageAccount
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '17d1049b-9a84-46fb-8f53-869881c3d3ab')
-    principalId: functionAppPrincipalId
-    principalType: 'ServicePrincipal'
-  }
+resource deploymentContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: blobService
+  name: deploymentContainerName
 }
 
 output storageAccountName string = storageAccount.name
 output storageAccountId string = storageAccount.id
+output primaryBlobEndpoint string = storageAccount.properties.primaryEndpoints.blob
+output deploymentContainerName string = deploymentContainerName
