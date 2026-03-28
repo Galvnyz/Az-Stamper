@@ -4,6 +4,21 @@
 
 Az-Stamper is an Azure Function that automatically stamps Azure resources with configurable metadata tags (creator identity, timestamps, static labels) by listening to Event Grid `ResourceWriteSuccess` events. It replaces the community [TagWithCreator](https://github.com/anwather/TagWithCreator) project with a production-grade, corporate-ready C# implementation.
 
+## Features
+
+- **Configurable tag map** — define any number of tags via app settings, no code changes or redeployment required
+- **Per-tag overwrite control** — "first writer wins" tags (Creator, CreatedOn) coexist with "always update" tags (LastModifiedBy, LastModifiedOn) in the same tag map
+- **Template variables** — `{caller}`, `{timestamp}`, `{principalType}` resolve at runtime; literal strings pass through as-is
+- **Intelligent caller resolution** — extracts UPN from ARM claims, falls back to Service Principal display name via Graph API, then raw principal ID as last resort
+- **Configurable ignore list** — skip resource types via app settings to prevent infinite loops (tag writes triggering tag writes) and reduce noise
+- **Zero-secret architecture** — managed identity for storage access, OIDC for CI/CD, no connection strings or API keys to rotate
+- **Defense-in-depth event filtering** — Event Grid advanced filters reduce invocations at the source; function-side ignore list handles edge cases the filters can't express
+- **Automated dependency management** — Dependabot opens weekly PRs for NuGet and GitHub Actions updates; auto-merge keeps dependencies current without manual intervention
+- **Full test coverage** — 23 unit tests covering all code paths; every Azure SDK call is behind a mockable interface, no credentials needed to run tests
+- **Workspace-based Application Insights** — structured logging via `ILogger<T>`, connected to Log Analytics for queries and alerting
+- **Infrastructure as code** — modular Bicep templates deploy everything: function app, storage, monitoring, Event Grid subscription, and all RBAC assignments
+- **Near-zero cost** — Flex Consumption scales to zero; a typical dev subscription stays well within Azure's free grant
+
 ## Key Design Decisions
 
 | Decision | Choice | Rationale |
