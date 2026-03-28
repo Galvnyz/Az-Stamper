@@ -13,6 +13,16 @@ param tags object = {
 }
 param stamperConfigJson string = '{"TagMap":{"Creator":{"Value":"{caller}","Overwrite":false},"CreatedOn":{"Value":"{timestamp}","Overwrite":false},"LastModifiedBy":{"Value":"{caller}","Overwrite":true},"LastModifiedOn":{"Value":"{timestamp}","Overwrite":true},"StampedBy":{"Value":"Az-Stamper","Overwrite":false}},"IgnorePatterns":["Microsoft.Resources/deployments","Microsoft.Resources/tags","Microsoft.Network/frontdoor"]}'
 
+// Deploy storage first (no MI dependency)
+module storage 'modules/storage.bicep' = {
+  name: 'storage'
+  params: {
+    name: storageAccountName
+    location: location
+    tags: tags
+  }
+}
+
 module monitoring 'modules/monitoring.bicep' = {
   name: 'monitoring'
   params: {
@@ -23,6 +33,7 @@ module monitoring 'modules/monitoring.bicep' = {
   }
 }
 
+// Function app depends on storage (needs blob endpoint) and monitoring
 module functionApp 'modules/functionApp.bicep' = {
   name: 'functionApp'
   params: {
@@ -30,19 +41,37 @@ module functionApp 'modules/functionApp.bicep' = {
     location: location
     tags: tags
     storageAccountName: storageAccountName
+    storageBlobEndpoint: storage.outputs.primaryBlobEndpoint
+    deploymentContainerName: storage.outputs.deploymentContainerName
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
     stamperConfigJson: stamperConfigJson
   }
 }
 
-module storage 'modules/storage.bicep' = {
-  name: 'storage'
-  params: {
-    name: storageAccountName
-    location: location
-    tags: tags
-    functionAppPrincipalId: functionApp.outputs.principalId
+// Storage RBAC — assigned after function app exists (needs principalId)
+resource blobDataOwnerRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccountName, functionAppName, 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')
+  scope: storageAccountRef
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')
+    principalId: functionApp.outputs.principalId
+    principalType: 'ServicePrincipal'
   }
+}
+
+resource storageContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccountName, functionAppName, '17d1049b-9a84-46fb-8f53-869881c3d3ab')
+  scope: storageAccountRef
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '17d1049b-9a84-46fb-8f53-869881c3d3ab')
+    principalId: functionApp.outputs.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Reference the storage account for RBAC scoping
+resource storageAccountRef 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
+  name: storageAccountName
 }
 
 output functionAppName string = functionApp.outputs.functionAppName
