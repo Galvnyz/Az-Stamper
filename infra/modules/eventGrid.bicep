@@ -1,15 +1,14 @@
-targetScope = 'subscription'
-
 param systemTopicName string
 param eventSubscriptionName string
 param functionAppId string
+param subscriptionId string
 param location string = 'global'
 
 resource systemTopic 'Microsoft.EventGrid/systemTopics@2024-06-01-preview' = {
   name: systemTopicName
   location: location
   properties: {
-    source: subscription().id
+    source: '/subscriptions/${subscriptionId}'
     topicType: 'Microsoft.Resources.Subscriptions'
   }
 }
