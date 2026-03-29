@@ -1,0 +1,8 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html"
+  },
+  "globalHeaders": {
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' https://alcdn.msauth.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.blob.core.windows.net https://management.azure.com https://api.loganalytics.io https://login.microsoftonline.com https://graph.microsoft.com"
+  }
+}
