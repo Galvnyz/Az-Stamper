@@ -83,6 +83,11 @@ function renderSubscriptionsTab() {
   });
 
   panel.appendChild(grid);
+
+  // Discovered (enrolled but not configured) section — populated by verifyAllEnrollments
+  const discoveredSection = document.createElement('div');
+  discoveredSection.id = 'discovered-subs-section';
+  panel.appendChild(discoveredSection);
 }
 
 function buildSubscriptionCard(subId, sub) {
@@ -463,12 +468,32 @@ async function verifyAllEnrollments() {
     }
   });
 
-  // Check each subscription for Event Grid system topics
-  var results = await Promise.allSettled(configSubIds.map(function(subId) {
+  // Fetch all accessible subscriptions to discover enrolled-but-unconfigured ones
+  var allSubs = [];
+  try {
+    var subsData = await azureFetch(
+      'https://management.azure.com/subscriptions?api-version=2022-12-01',
+      token
+    );
+    allSubs = (subsData && subsData.value) ? subsData.value : [];
+  } catch (err) {
+    console.error('Failed to fetch subscriptions for discovery:', err);
+  }
+
+  // Build full list: configured subs + unconfigured accessible subs
+  var unconfiguredSubs = allSubs.filter(function(s) {
+    return !config.subscriptions[s.subscriptionId];
+  });
+  var allSubIds = configSubIds.concat(unconfiguredSubs.map(function(s) {
+    return s.subscriptionId;
+  }));
+
+  // Check all subscriptions for Event Grid system topics in parallel
+  var results = await Promise.allSettled(allSubIds.map(function(subId) {
     return checkEventGridEnrollment(subId, token);
   }));
 
-  // Apply results to badges
+  // Apply results to configured subscription badges
   configSubIds.forEach(function(subId, i) {
     var el = document.querySelector('[data-health-badge="' + subId + '"]');
     if (!el) return;
@@ -481,8 +506,7 @@ async function verifyAllEnrollments() {
       return;
     }
 
-    var enrolled = result.value;
-    if (enrolled) {
+    if (result.value) {
       el.className = 'badge badge-enabled';
       el.textContent = 'Enrolled';
       el.title = 'Event Grid system topic found';
@@ -493,7 +517,24 @@ async function verifyAllEnrollments() {
     }
   });
 
-  showToast('Enrollment verification complete', 'info');
+  // Render discovered enrolled-but-unconfigured subscriptions
+  var discovered = [];
+  unconfiguredSubs.forEach(function(sub, i) {
+    var resultIdx = configSubIds.length + i;
+    var result = results[resultIdx];
+    if (result.status === 'fulfilled' && result.value) {
+      discovered.push(sub);
+    }
+  });
+
+  renderDiscoveredSubs(discovered);
+
+  var msg = 'Verification complete';
+  if (discovered.length > 0) {
+    msg += ' — ' + discovered.length + ' enrolled sub' +
+      (discovered.length > 1 ? 's' : '') + ' not in config';
+  }
+  showToast(msg, discovered.length > 0 ? 'warning' : 'info');
 }
 
 async function checkEventGridEnrollment(subId, token) {
@@ -508,6 +549,113 @@ async function checkEventGridEnrollment(subId, token) {
     return topic.properties &&
       topic.properties.topicType === 'Microsoft.Resources.Subscriptions';
   });
+}
+
+function renderDiscoveredSubs(discoveredSubs) {
+  var section = document.getElementById('discovered-subs-section');
+  if (!section) return;
+  section.textContent = '';
+
+  if (discoveredSubs.length === 0) return;
+
+  var heading = document.createElement('div');
+  heading.className = 'controls-bar';
+  heading.style.marginTop = '24px';
+
+  var title = document.createElement('span');
+  title.className = 'controls-bar-title';
+  title.textContent = 'Discovered Enrolled Subscriptions';
+  heading.appendChild(title);
+
+  var hint = document.createElement('span');
+  hint.style.cssText = 'color:var(--text-secondary);font-size:0.8125rem;';
+  hint.textContent = 'Event Grid enrolled but not in config — using global defaults only';
+  heading.appendChild(hint);
+
+  section.appendChild(heading);
+
+  var grid = document.createElement('div');
+  grid.className = 'card-grid';
+
+  discoveredSubs.forEach(function(sub) {
+    var card = document.createElement('div');
+    card.className = 'card';
+    card.style.borderColor = 'var(--warning)';
+    card.style.borderStyle = 'dashed';
+
+    // Header
+    var header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px;';
+
+    var titleBlock = document.createElement('div');
+    titleBlock.style.minWidth = '0';
+
+    var cardTitle = document.createElement('div');
+    cardTitle.className = 'card-title';
+    cardTitle.style.cssText = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+    cardTitle.textContent = sub.displayName;
+
+    var cardSubtitle = document.createElement('div');
+    cardSubtitle.className = 'card-subtitle';
+    cardSubtitle.style.cssText = 'font-family:monospace;word-break:break-all;';
+    cardSubtitle.textContent = sub.subscriptionId;
+
+    titleBlock.appendChild(cardTitle);
+    titleBlock.appendChild(cardSubtitle);
+
+    var badge = document.createElement('span');
+    badge.className = 'badge badge-warning';
+    badge.textContent = 'Unconfigured';
+
+    header.appendChild(titleBlock);
+    header.appendChild(badge);
+    card.appendChild(header);
+
+    // Description
+    var desc = document.createElement('p');
+    desc.style.cssText = 'color:var(--text-secondary);font-size:0.8125rem;margin:0 0 12px;';
+    desc.textContent = 'This subscription has an Event Grid enrollment but no entry in stamper.json. It receives global default tags only.';
+    card.appendChild(desc);
+
+    // Add to Config button
+    var footer = document.createElement('div');
+    footer.className = 'card-footer';
+
+    var addBtn = document.createElement('button');
+    addBtn.className = 'btn btn-primary btn-sm';
+    addBtn.textContent = 'Add to Config';
+    addBtn.addEventListener('click', function() {
+      addDiscoveredToConfig(sub.subscriptionId, sub.displayName);
+    });
+    footer.appendChild(addBtn);
+    card.appendChild(footer);
+
+    grid.appendChild(card);
+  });
+
+  section.appendChild(grid);
+}
+
+async function addDiscoveredToConfig(subId, displayName) {
+  var config = getConfig();
+  if (config.subscriptions[subId]) {
+    showToast('Subscription already in config', 'info');
+    renderSubscriptionsTab();
+    return;
+  }
+
+  config.subscriptions[subId] = {
+    displayName: displayName,
+    enabled: true,
+    tagOverrides: {},
+    resourceTypeRules: {},
+  };
+
+  var ok = await saveConfig(config);
+  if (ok) {
+    showToast('Added ' + displayName + ' to config', 'info');
+    renderSubscriptionsTab();
+  }
 }
 
 window.loadSubscriptionsTab = loadSubscriptionsTab;
