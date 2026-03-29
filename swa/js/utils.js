@@ -89,6 +89,32 @@ function showModal(title, bodyHtml, actionsHtml) {
   container.appendChild(overlay);
 }
 
+function showModalDOM(title, bodyNode, actionButtons) {
+  var container = document.getElementById('modal-container');
+  container.textContent = '';
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.addEventListener('click', closeModal);
+
+  var modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.addEventListener('click', function(e) { e.stopPropagation(); });
+
+  var h3 = document.createElement('h3');
+  h3.textContent = title;
+  modal.appendChild(h3);
+  modal.appendChild(bodyNode);
+
+  var actions = document.createElement('div');
+  actions.className = 'modal-actions';
+  actionButtons.forEach(function(btn) { actions.appendChild(btn); });
+  modal.appendChild(actions);
+
+  overlay.appendChild(modal);
+  container.appendChild(overlay);
+}
+
 function closeModal() {
   document.getElementById('modal-container').textContent = '';
 }
