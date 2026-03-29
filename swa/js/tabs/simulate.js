@@ -228,7 +228,7 @@ async function runSimulation(subId, typeFilter) {
     var url = 'https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01';
     var result = await azureFetch(url, token, {
       method: 'POST',
-      body: JSON.stringify({ query: kql }),
+      body: JSON.stringify({ query: kql, subscriptions: [subId] }),
     });
 
     var resources = (result && result.data) ? result.data : [];
@@ -247,7 +247,7 @@ async function runSimulation(subId, typeFilter) {
   } catch (err) {
     console.error('Simulation error:', err);
     showToast('Simulation failed: ' + err.message, 'error');
-    renderSimulationError('Query failed: ' + escapeHtml(err.message), resultsContainer);
+    renderSimulationError('Query failed: ' + err.message, resultsContainer);
   } finally {
     if (runBtn) {
       runBtn.disabled = false;
@@ -520,7 +520,7 @@ function renderSimulationResults(results, container) {
       result.excludedTags.forEach(function(tagName) {
         var chip = document.createElement('span');
         chip.className = 'tag-chip tag-excluded';
-        chip.textContent = escapeHtml(tagName);
+        chip.textContent = tagName;
         tdExcluded.appendChild(chip);
       });
     }
@@ -568,7 +568,7 @@ function renderTagChips(tagsObj, chipClass, container) {
   keys.forEach(function(key) {
     var chip = document.createElement('span');
     chip.className = 'tag-chip ' + chipClass;
-    chip.textContent = escapeHtml(key) + ': ' + escapeHtml(String(tagsObj[key]));
+    chip.textContent = key + ': ' + String(tagsObj[key]);
     container.appendChild(chip);
   });
 }

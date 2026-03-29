@@ -1,8 +1,5 @@
 // Tag Rules Tab — per-subscription tag overrides, resource-type rules, ignore patterns
 
-// Stored snapshot for Reset support; keyed by subId
-var _rulesOriginal = {};
-
 // Entry point — called by tab switcher or navigateToRules(subId) from subscriptions tab
 async function loadRulesTab(selectedSubId) {
   const panel = document.getElementById('panel-rules');
@@ -129,9 +126,7 @@ function renderRulesTab(selectedSubId) {
     return;
   }
 
-  // Snapshot the original state for this sub so Reset can restore it
   const subConfig = subs[selectedSubId];
-  _rulesOriginal[selectedSubId] = JSON.parse(JSON.stringify(subConfig));
 
   // ── Section A: Global Defaults (read-only) ────────────────────────────────
   const globalSection = buildSection('Global Defaults', 'Applied to all resources. Read-only — configure per-subscription overrides below.');
@@ -621,11 +616,6 @@ async function saveRulesTab(subId, saveBtn) {
   if (saveBtn) saveBtn.disabled = true;
   const ok = await saveConfig(config);
   if (saveBtn) saveBtn.disabled = false;
-
-  if (ok) {
-    // Update the stored original so subsequent Reset restores the just-saved state
-    _rulesOriginal[subId] = JSON.parse(JSON.stringify(updatedSub));
-  }
 }
 
 // Expose entry point on window so tab-switcher inline script can call it

@@ -12,7 +12,7 @@ function setContent(element, content) {
   if (typeof element === 'string') element = $(element);
   element.textContent = '';
   if (typeof content === 'string') {
-    element.insertAdjacentHTML('beforeend', content);
+    element.appendChild(document.createTextNode(content));
   } else if (content instanceof Node) {
     element.appendChild(content);
   }
@@ -98,6 +98,6 @@ function showToast(message, type) {
   const toast = document.createElement('div');
   toast.className = 'toast toast-' + type;
   toast.textContent = message;
-  document.body.appendChild(toast);
+  document.getElementById('toast-container').appendChild(toast);
   setTimeout(function() { toast.remove(); }, 4000);
 }

@@ -418,3 +418,5 @@ function navigateToRules(subId) {
     window.loadRulesTab(subId);
   }
 }
+
+window.loadSubscriptionsTab = loadSubscriptionsTab;

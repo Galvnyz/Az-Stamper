@@ -138,7 +138,7 @@ async function refreshActivity() {
       '| take 100',
     ].join('\n');
 
-    var url = 'https://management.azure.com' + appInsightsId + '/api/query?api-version=2014-12-01-preview';
+    var url = 'https://management.azure.com' + appInsightsId + '/query?api-version=2019-08-01-preview';
 
     var data = await azureFetch(url, token, {
       method: 'POST',
