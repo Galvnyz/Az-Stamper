@@ -1,0 +1,7 @@
+{
+  "name": "az-stamper-config-ui",
+  "private": true,
+  "scripts": {
+    "start": "npx @azure/static-web-apps-cli start ."
+  }
+}
