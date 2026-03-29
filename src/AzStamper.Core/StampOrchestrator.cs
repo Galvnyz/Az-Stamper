@@ -113,8 +113,20 @@ public class StampOrchestrator
         var tagsToApply = new Dictionary<string, string>();
         var timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
+        // Detect first stamp: if no Overwrite=false tags exist yet, this is a creation event.
+        // Skip Overwrite=true tags (LastModifiedBy/On) on creation to avoid confusing
+        // identical CreatedOn and LastModifiedOn timestamps.
+        var isFirstStamp = !ruleSet.TagMap
+            .Where(t => !t.Value.Overwrite)
+            .Any(t => existingTags.ContainsKey(t.Key));
+
         foreach (var (key, entry) in ruleSet.TagMap)
         {
+            if (isFirstStamp && entry.Overwrite)
+            {
+                continue;
+            }
+
             if (existingTags.ContainsKey(key) && !entry.Overwrite)
             {
                 _logger.LogInformation("Tag '{Key}' already exists on {ResourceId} — skipping (overwrite=false)", key, evt.ResourceId);
