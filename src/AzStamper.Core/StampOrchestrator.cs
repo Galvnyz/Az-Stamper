@@ -30,8 +30,14 @@ public class StampOrchestrator
         _logger = logger;
     }
 
-    public async Task ProcessAsync(ResourceEvent evt, CancellationToken cancellationToken = default)
+    public async Task ProcessAsync(ResourceEvent? evt, CancellationToken cancellationToken = default)
     {
+        if (evt is null)
+        {
+            _logger.LogWarning("ResourceEvent is null — skipping");
+            return;
+        }
+
         if (string.IsNullOrEmpty(evt.ResourceId))
         {
             _logger.LogWarning("Event has null or empty ResourceId — skipping");
@@ -134,12 +140,26 @@ public class StampOrchestrator
             }
 
             var value = ResolveTemplate(entry.Value, caller, timestamp, evt.PrincipalType);
+            if (value.Length > 256)
+            {
+                _logger.LogWarning("Tag '{Key}' value exceeds 256 chars ({Length}) — truncating", key, value.Length);
+                value = value[..256];
+            }
             tagsToApply[key] = value;
         }
 
         if (tagsToApply.Count == 0)
         {
             _logger.LogInformation("No new tags to apply to {ResourceId}", evt.ResourceId);
+            return;
+        }
+
+        // Azure enforces a 50-tag limit per resource
+        var totalTagCount = existingTags.Count + tagsToApply.Count(t => !existingTags.ContainsKey(t.Key));
+        if (totalTagCount > 50)
+        {
+            _logger.LogWarning("Skipping {ResourceId} — applying {NewCount} tag(s) would exceed the 50-tag limit (existing: {ExistingCount})",
+                evt.ResourceId, tagsToApply.Count, existingTags.Count);
             return;
         }
 

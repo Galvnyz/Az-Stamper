@@ -420,4 +420,57 @@ public class StampOrchestratorTests
         Assert.Equal("bob@contoso.com", capturedTags["LastModifiedBy"]);
         Assert.False(capturedTags.ContainsKey("Creator"), "Creator should not be overwritten");
     }
+
+    [Fact]
+    public async Task SkipsWhenEventIsNull()
+    {
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ProcessAsync(null);
+
+        _tagService.Verify(x => x.GetTagsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task TruncatesTagValuesExceeding256Chars()
+    {
+        var resourceId = "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1";
+        var longCaller = new string('a', 300);
+        _tagService
+            .Setup(x => x.GetTagsAsync(resourceId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, string>());
+        _tagService
+            .Setup(x => x.SetTagsAsync(resourceId, It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var orchestrator = CreateOrchestrator();
+        var evt = new ResourceEvent { ResourceId = resourceId, Caller = longCaller };
+
+        await orchestrator.ProcessAsync(evt);
+
+        _tagService.Verify(x => x.SetTagsAsync(
+            resourceId,
+            It.Is<Dictionary<string, string>>(d =>
+                d["Creator"].Length == 256),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task SkipsWhenTagCountWouldExceed50()
+    {
+        var resourceId = "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1";
+        var existingTags = Enumerable.Range(0, 48)
+            .ToDictionary(i => $"ExistingTag{i}", i => $"value{i}");
+        _tagService
+            .Setup(x => x.GetTagsAsync(resourceId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingTags);
+
+        var orchestrator = CreateOrchestrator();
+        var evt = new ResourceEvent { ResourceId = resourceId, Caller = "alice@contoso.com" };
+
+        await orchestrator.ProcessAsync(evt);
+
+        _tagService.Verify(x => x.SetTagsAsync(
+            It.IsAny<string>(), It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
 }
