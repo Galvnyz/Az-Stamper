@@ -34,7 +34,9 @@ function initAuth() {
 
   msalInstance = new msal.PublicClientApplication(msalConfig);
 
-  msalInstance.handleRedirectPromise().then(response => {
+  msalInstance.initialize().then(() => {
+    return msalInstance.handleRedirectPromise();
+  }).then(response => {
     if (response) {
       currentAccount = response.account;
     } else {
