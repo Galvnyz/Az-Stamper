@@ -35,6 +35,12 @@ function renderSubscriptionsTab() {
   titleEl.textContent = 'Subscriptions';
   bar.appendChild(titleEl);
 
+  const verifyBtn = document.createElement('button');
+  verifyBtn.className = 'btn btn-secondary';
+  verifyBtn.textContent = 'Verify Enrollment';
+  verifyBtn.addEventListener('click', verifyAllEnrollments);
+  bar.appendChild(verifyBtn);
+
   const addBtn = document.createElement('button');
   addBtn.className = 'btn btn-primary';
   addBtn.textContent = '+ Add Subscription';
@@ -121,8 +127,20 @@ function buildSubscriptionCard(subId, sub) {
   badge.className = 'badge ' + (enabled ? 'badge-enabled' : 'badge-disabled');
   badge.textContent = enabled ? 'Enabled' : 'Disabled';
 
+  const badges = document.createElement('div');
+  badges.style.cssText = 'display:flex;flex-direction:column;gap:4px;align-items:flex-end;';
+  badges.appendChild(badge);
+
+  // Enrollment health badge (populated by verifyAllEnrollments)
+  const healthBadge = document.createElement('span');
+  healthBadge.className = 'badge badge-info';
+  healthBadge.textContent = 'Not Verified';
+  healthBadge.setAttribute('data-health-badge', subId);
+  healthBadge.style.fontSize = '0.65rem';
+  badges.appendChild(healthBadge);
+
   header.appendChild(titleBlock);
-  header.appendChild(badge);
+  header.appendChild(badges);
   card.appendChild(header);
 
   // Counts row
@@ -424,6 +442,72 @@ function navigateToRules(subId) {
   if (typeof window.loadRulesTab === 'function') {
     window.loadRulesTab(subId);
   }
+}
+
+async function verifyAllEnrollments() {
+  var token = await getManagementToken();
+  if (!token) {
+    showToast('Could not acquire token for enrollment check', 'error');
+    return;
+  }
+
+  var config = getConfig();
+  var configSubIds = Object.keys(config.subscriptions || {});
+
+  // Update all badges to show checking state
+  configSubIds.forEach(function(subId) {
+    var el = document.querySelector('[data-health-badge="' + subId + '"]');
+    if (el) {
+      el.className = 'badge badge-info';
+      el.textContent = 'Checking…';
+    }
+  });
+
+  // Check each subscription for Event Grid system topics
+  var results = await Promise.allSettled(configSubIds.map(function(subId) {
+    return checkEventGridEnrollment(subId, token);
+  }));
+
+  // Apply results to badges
+  configSubIds.forEach(function(subId, i) {
+    var el = document.querySelector('[data-health-badge="' + subId + '"]');
+    if (!el) return;
+
+    var result = results[i];
+    if (result.status === 'rejected') {
+      el.className = 'badge badge-warning';
+      el.textContent = 'Check Failed';
+      el.title = String(result.reason);
+      return;
+    }
+
+    var enrolled = result.value;
+    if (enrolled) {
+      el.className = 'badge badge-enabled';
+      el.textContent = 'Enrolled';
+      el.title = 'Event Grid system topic found';
+    } else {
+      el.className = 'badge badge-warning';
+      el.textContent = 'Config Only';
+      el.title = 'No Event Grid system topic found — run enroll.bicep to deploy';
+    }
+  });
+
+  showToast('Enrollment verification complete', 'info');
+}
+
+async function checkEventGridEnrollment(subId, token) {
+  var url = 'https://management.azure.com/subscriptions/' + subId +
+    '/providers/Microsoft.EventGrid/systemTopics?api-version=2022-06-15';
+
+  var data = await azureFetch(url, token);
+  var topics = (data && data.value) ? data.value : [];
+
+  // Look for a system topic sourced from this subscription
+  return topics.some(function(topic) {
+    return topic.properties &&
+      topic.properties.topicType === 'Microsoft.Resources.Subscriptions';
+  });
 }
 
 window.loadSubscriptionsTab = loadSubscriptionsTab;
