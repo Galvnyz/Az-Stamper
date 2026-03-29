@@ -41,8 +41,8 @@ public class ResourceStamperFunction
             Caller = GetClaimValue(data, "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn")
         };
 
-        _logger.LogInformation("Parsed event — ResourceId: {ResourceId}, Caller: {Caller}, PrincipalType: {PrincipalType}",
-            evt.ResourceId, evt.Caller, evt.PrincipalType);
+        _logger.LogInformation("Parsed event — ResourceId: {ResourceId}, Caller: {Caller}, PrincipalId: {PrincipalId}, PrincipalType: {PrincipalType}",
+            evt.ResourceId, evt.Caller, evt.PrincipalId, evt.PrincipalType);
 
         await _orchestrator.ProcessAsync(evt, cancellationToken);
     }
