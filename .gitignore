@@ -11,3 +11,4 @@ publish/
 _*.ps1
 infra/*.json
 !infra/enroll.json
+.superpowers/
