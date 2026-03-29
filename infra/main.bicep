@@ -7,6 +7,7 @@ param appInsightsName string
 param logAnalyticsName string = '${functionAppName}-law'
 param environment string = 'dev'
 param swaName string = '${functionAppName}-config'
+param workbookName string = 'Az-Stamper Activity Dashboard'
 param tags object = {
   Project: 'Az-Stamper'
   ManagedBy: 'Bicep'
@@ -74,6 +75,17 @@ resource storageAccountRef 'Microsoft.Storage/storageAccounts@2023-05-01' existi
   name: storageAccountName
 }
 
+
+// Azure Workbook for tag monitoring dashboard
+module workbook 'modules/workbook.bicep' = {
+  name: 'workbook'
+  params: {
+    name: workbookName
+    location: location
+    tags: tags
+    appInsightsId: monitoring.outputs.appInsightsId
+  }
+}
 
 // Static Web App for config management UI
 module swa 'modules/swa.bicep' = {

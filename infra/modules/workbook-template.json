@@ -1,0 +1,154 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "time-range",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "type": 4,
+            "typeSettings": {
+              "selectableValues": [
+                { "durationMs": 3600000, "displayName": "Last 1 hour" },
+                { "durationMs": 86400000, "displayName": "Last 24 hours" },
+                { "durationMs": 604800000, "displayName": "Last 7 days" },
+                { "durationMs": 2592000000, "displayName": "Last 30 days" }
+              ],
+              "allowCustom": true
+            },
+            "value": { "durationMs": 86400000 }
+          }
+        ]
+      },
+      "name": "parameters"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "# Az-Stamper Activity Dashboard\nMonitor tag stamping activity, success rates, and errors across enrolled subscriptions."
+      },
+      "name": "header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "traces\n| where timestamp {TimeRange}\n| where message startswith \"Stamped\"\n| extend SubscriptionId = tostring(customDimensions.SubscriptionId)\n| summarize\n    TagsApplied = sum(toint(customDimensions.Count)),\n    ResourcesStamped = dcount(tostring(customDimensions.ResourceId)),\n    LastActivity = max(timestamp)\n  by SubscriptionId\n| order by ResourcesStamped desc",
+        "size": 1,
+        "title": "Active Subscriptions",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            { "columnMatch": "TagsApplied", "formatter": 4, "formatOptions": { "palette": "blue" } },
+            { "columnMatch": "ResourcesStamped", "formatter": 4, "formatOptions": { "palette": "green" } },
+            { "columnMatch": "LastActivity", "formatter": 6, "formatOptions": { "dateFormat": { "formatName": "shortDateTimePattern" } } }
+          ]
+        }
+      },
+      "name": "active-subscriptions"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "traces\n| where timestamp {TimeRange}\n| where message startswith \"Stamped\" or message startswith \"Failed to stamp\" or message startswith \"Skipping\"\n| extend SubscriptionId = tostring(customDimensions.SubscriptionId)\n| extend Status = case(\n    message startswith \"Stamped\", \"Success\",\n    message startswith \"Failed\", \"Failed\",\n    \"Skipped\")\n| summarize Count = count() by SubscriptionId, Status\n| order by SubscriptionId asc, Status asc",
+        "size": 1,
+        "title": "Tag Success / Failure / Skip Rates by Subscription",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "barchart",
+        "chartSettings": {
+          "xAxis": "SubscriptionId",
+          "yAxis": [ "Count" ],
+          "group": "Status",
+          "seriesLabelSettings": [
+            { "seriesName": "Success", "color": "green" },
+            { "seriesName": "Failed", "color": "red" },
+            { "seriesName": "Skipped", "color": "yellow" }
+          ]
+        }
+      },
+      "name": "success-failure-rates"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "traces\n| where timestamp {TimeRange}\n| where message startswith \"Stamped\"\n| extend ResourceType = tostring(customDimensions.ResourceType)\n| summarize\n    ResourcesStamped = dcount(tostring(customDimensions.ResourceId)),\n    TotalTags = sum(toint(customDimensions.Count))\n  by ResourceType\n| top 15 by ResourcesStamped desc",
+        "size": 1,
+        "title": "Most-Tagged Resource Types",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "barchart",
+        "chartSettings": {
+          "xAxis": "ResourceType",
+          "yAxis": [ "ResourcesStamped" ]
+        }
+      },
+      "name": "top-resource-types"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "traces\n| where timestamp {TimeRange}\n| where severityLevel >= 2\n| where message !startswith \"Skipping self-triggered\"\n| extend ResourceId = tostring(customDimensions.ResourceId)\n| extend ResourceType = tostring(customDimensions.ResourceType)\n| extend Reason = case(\n    message has \"ignore pattern\", strcat(\"Ignore pattern: \", tostring(customDimensions.Pattern)),\n    message has \"50-tag limit\", \"Tag limit exceeded\",\n    message has \"Cannot resolve caller\", \"Caller unresolvable\",\n    message has \"Could not read tags\", \"Tag read failed\",\n    message has \"Failed to stamp\", \"Stamp failed\",\n    message has \"disabled\", \"Subscription disabled\",\n    message)\n| project timestamp, ResourceId, ResourceType, Reason\n| order by timestamp desc\n| take 100",
+        "size": 1,
+        "title": "Errors & Skipped Resources",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            { "columnMatch": "timestamp", "formatter": 6, "formatOptions": { "dateFormat": { "formatName": "shortDateTimePattern" } } },
+            { "columnMatch": "Reason", "formatter": 1 }
+          ]
+        }
+      },
+      "name": "errors-skipped"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "traces\n| where timestamp {TimeRange}\n| where message startswith \"Stamped\" or message startswith \"Failed to stamp\"\n| extend Status = iff(message startswith \"Stamped\", \"Success\", \"Failed\")\n| summarize Count = count() by bin(timestamp, 1h), Status\n| order by timestamp asc",
+        "size": 0,
+        "title": "Tagging Activity Timeline",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "timechart",
+        "chartSettings": {
+          "seriesLabelSettings": [
+            { "seriesName": "Success", "color": "green" },
+            { "seriesName": "Failed", "color": "red" }
+          ]
+        }
+      },
+      "name": "activity-timeline"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "traces\n| where timestamp {TimeRange}\n| where message startswith \"Stamped\"\n| extend Caller = tostring(customDimensions.Caller)\n| summarize ResourcesStamped = dcount(tostring(customDimensions.ResourceId)) by Caller\n| top 10 by ResourcesStamped desc",
+        "size": 1,
+        "title": "Top Callers (Who Triggered Stamping)",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            { "columnMatch": "ResourcesStamped", "formatter": 4, "formatOptions": { "palette": "blue" } }
+          ]
+        }
+      },
+      "name": "top-callers"
+    }
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
