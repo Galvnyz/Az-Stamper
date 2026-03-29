@@ -233,110 +233,116 @@ async function toggleSubscription(subId, newEnabled) {
   }
 }
 
-function openAddSubscriptionModal() {
-  // Modal form body contains only static HTML (no user content) -- safe
-  const subIdLabel = document.createElement('label');
-  subIdLabel.className = 'form-label';
-  subIdLabel.setAttribute('for', 'new-sub-id');
-  subIdLabel.textContent = 'Subscription ID';
+async function openAddSubscriptionModal() {
+  // Fetch available subscriptions from ARM
+  var token = await getManagementToken();
+  var availableSubs = [];
+  if (token) {
+    try {
+      var data = await azureFetch(
+        'https://management.azure.com/subscriptions?api-version=2022-12-01',
+        token
+      );
+      availableSubs = (data && data.value) ? data.value : [];
+    } catch (err) {
+      console.error('Failed to fetch subscriptions:', err);
+    }
+  }
 
-  const subIdInput = document.createElement('input');
-  subIdInput.id = 'new-sub-id';
-  subIdInput.className = 'form-input';
-  subIdInput.type = 'text';
-  subIdInput.placeholder = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx';
-  subIdInput.autocomplete = 'off';
-
-  const subIdGroup = document.createElement('div');
-  subIdGroup.className = 'form-group';
-  subIdGroup.appendChild(subIdLabel);
-  subIdGroup.appendChild(subIdInput);
-
-  const subNameLabel = document.createElement('label');
-  subNameLabel.className = 'form-label';
-  subNameLabel.setAttribute('for', 'new-sub-name');
-  subNameLabel.textContent = 'Display Name';
-
-  const subNameInput = document.createElement('input');
-  subNameInput.id = 'new-sub-name';
-  subNameInput.className = 'form-input';
-  subNameInput.type = 'text';
-  subNameInput.placeholder = 'e.g. Production Hub';
-  subNameInput.autocomplete = 'off';
-
-  const subNameGroup = document.createElement('div');
-  subNameGroup.className = 'form-group';
-  subNameGroup.style.marginTop = '14px';
-  subNameGroup.appendChild(subNameLabel);
-  subNameGroup.appendChild(subNameInput);
-
-  const formWrapper = document.createElement('div');
-  formWrapper.appendChild(subIdGroup);
-  formWrapper.appendChild(subNameGroup);
-
-  const actionsHtml =
-    '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>' +
-    '<button class="btn btn-primary" id="confirm-add-sub-btn">Add</button>';
-
-  showModal('Add Subscription', '<div id="add-sub-form-placeholder"></div>', actionsHtml);
-
-  const placeholder = document.getElementById('add-sub-form-placeholder');
-  if (placeholder) placeholder.replaceWith(formWrapper);
-
-  document.getElementById('confirm-add-sub-btn').addEventListener('click', confirmAddSubscription);
-
-  // Allow Enter to submit from either field
-  document.getElementById('new-sub-id').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') confirmAddSubscription();
+  // Filter out already-added subscriptions
+  var config = getConfig();
+  var existing = config.subscriptions || {};
+  availableSubs = availableSubs.filter(function(s) {
+    return !existing[s.subscriptionId];
   });
-  document.getElementById('new-sub-name').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') confirmAddSubscription();
+
+  // Build modal body
+  var formWrapper = document.createElement('div');
+
+  if (availableSubs.length === 0) {
+    var emptyMsg = document.createElement('p');
+    emptyMsg.style.cssText = 'color:var(--text-secondary);font-size:0.875rem;';
+    emptyMsg.textContent = token
+      ? 'All accessible subscriptions have been added.'
+      : 'Could not load subscriptions. Check your permissions.';
+    formWrapper.appendChild(emptyMsg);
+  } else {
+    var selectLabel = document.createElement('label');
+    selectLabel.className = 'form-label';
+    selectLabel.setAttribute('for', 'new-sub-select');
+    selectLabel.textContent = 'Select Subscription';
+
+    var select = document.createElement('select');
+    select.id = 'new-sub-select';
+    select.className = 'form-input';
+
+    availableSubs.sort(function(a, b) {
+      return a.displayName.localeCompare(b.displayName);
+    });
+
+    availableSubs.forEach(function(sub) {
+      var opt = document.createElement('option');
+      opt.value = sub.subscriptionId;
+      opt.textContent = sub.displayName + ' (' + sub.subscriptionId.substring(0, 8) + '…)';
+      select.appendChild(opt);
+    });
+
+    var selectGroup = document.createElement('div');
+    selectGroup.className = 'form-group';
+    selectGroup.appendChild(selectLabel);
+    selectGroup.appendChild(select);
+    formWrapper.appendChild(selectGroup);
+  }
+
+  // Store subs on the wrapper so confirmAdd can read them
+  formWrapper._availableSubs = availableSubs;
+
+  // Build action buttons with DOM (no inline onclick — CSP safe)
+  var cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn btn-secondary';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', closeModal);
+
+  var addBtn = document.createElement('button');
+  addBtn.className = 'btn btn-primary';
+  addBtn.textContent = 'Add';
+  if (availableSubs.length === 0) addBtn.disabled = true;
+  addBtn.addEventListener('click', function() {
+    confirmAddSubscription(formWrapper._availableSubs);
   });
+
+  showModalDOM('Add Subscription', formWrapper, [cancelBtn, addBtn]);
 
   setTimeout(function() {
-    const field = document.getElementById('new-sub-id');
+    var field = document.getElementById('new-sub-select');
     if (field) field.focus();
   }, 50);
 }
 
-async function confirmAddSubscription() {
-  const subIdInput = document.getElementById('new-sub-id');
-  const subNameInput = document.getElementById('new-sub-name');
-  if (!subIdInput || !subNameInput) return;
+async function confirmAddSubscription(availableSubs) {
+  var select = document.getElementById('new-sub-select');
+  if (!select) return;
 
-  const subId = (subIdInput.value || '').trim();
-  const displayName = (subNameInput.value || '').trim();
+  var subId = select.value;
+  if (!subId) return;
 
-  if (!subId) {
-    subIdInput.style.borderColor = 'var(--error)';
-    subIdInput.focus();
-    return;
-  }
+  var sub = availableSubs.find(function(s) { return s.subscriptionId === subId; });
+  var displayName = sub ? sub.displayName : subId;
 
-  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!uuidPattern.test(subId)) {
-    subIdInput.style.borderColor = 'var(--error)';
-    showToast('Subscription ID must be a valid UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)', 'error');
-    subIdInput.focus();
-    return;
-  }
-
-  const config = getConfig();
+  var config = getConfig();
   if (config.subscriptions[subId]) {
-    subIdInput.style.borderColor = 'var(--error)';
-    showToast('Subscription ID already exists', 'error');
-    subIdInput.focus();
+    showToast('Subscription already added', 'error');
     return;
   }
 
   config.subscriptions[subId] = {
-    displayName: displayName || subId,
+    displayName: displayName,
     enabled: true,
     tagOverrides: {},
     resourceTypeRules: {},
   };
 
-  const ok = await saveConfig(config);
+  var ok = await saveConfig(config);
   if (ok) {
     closeModal();
     renderSubscriptionsTab();
@@ -368,18 +374,19 @@ function openRemoveSubscriptionModal(subId, displayName) {
   bodyEl.appendChild(p2);
   bodyEl.appendChild(p3);
 
-  const actionsHtml =
-    '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>' +
-    '<button class="btn btn-danger" id="confirm-remove-sub-btn">Remove</button>';
+  var cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn btn-secondary';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', closeModal);
 
-  showModal('Remove Subscription', '<div id="remove-sub-body-placeholder"></div>', actionsHtml);
-
-  const placeholder = document.getElementById('remove-sub-body-placeholder');
-  if (placeholder) placeholder.replaceWith(bodyEl);
-
-  document.getElementById('confirm-remove-sub-btn').addEventListener('click', function() {
+  var removeBtn = document.createElement('button');
+  removeBtn.className = 'btn btn-danger';
+  removeBtn.textContent = 'Remove';
+  removeBtn.addEventListener('click', function() {
     confirmRemoveSubscription(subId);
   });
+
+  showModalDOM('Remove Subscription', bodyEl, [cancelBtn, removeBtn]);
 }
 
 async function confirmRemoveSubscription(subId) {
