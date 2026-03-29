@@ -73,6 +73,7 @@ resource storageAccountRef 'Microsoft.Storage/storageAccounts@2023-05-01' existi
   name: storageAccountName
 }
 
+
 output functionAppName string = functionApp.outputs.functionAppName
 output functionAppId string = functionApp.outputs.functionAppId
 output principalId string = functionApp.outputs.principalId
