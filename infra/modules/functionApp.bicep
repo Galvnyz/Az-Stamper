@@ -123,6 +123,26 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
           value: 'Microsoft.Network/frontdoor'
         }
         {
+          name: 'StamperConfig__IgnorePatterns__3'
+          value: 'Microsoft.Authorization/'
+        }
+        {
+          name: 'StamperConfig__IgnorePatterns__4'
+          value: 'Microsoft.Resources/subscriptions'
+        }
+        {
+          name: 'StamperConfig__IgnorePatterns__5'
+          value: 'Microsoft.ClassicCompute/'
+        }
+        {
+          name: 'StamperConfig__IgnorePatterns__6'
+          value: 'Microsoft.Insights/diagnosticSettings'
+        }
+        {
+          name: 'StamperConfig__IgnorePatterns__7'
+          value: 'Microsoft.Security/'
+        }
+        {
           name: 'StamperConfig__ConfigBlobUri'
           value: 'https://${storageAccountName}.blob.${environment().suffixes.storage}/config/stamper.json'
         }
