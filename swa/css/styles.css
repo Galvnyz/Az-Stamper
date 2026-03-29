@@ -486,8 +486,8 @@ tbody tr:hover {
 }
 
 .tag-existing {
-  background: rgba(136, 136, 170, 0.15);
-  color: var(--text-secondary);
+  background: rgba(136, 136, 170, 0.22);
+  color: #b0b0cc;
   border: 1px solid var(--border);
 }
 
