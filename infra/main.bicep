@@ -6,6 +6,7 @@ param functionAppName string
 param appInsightsName string
 param logAnalyticsName string = '${functionAppName}-law'
 param environment string = 'dev'
+param swaName string = '${functionAppName}-config'
 param tags object = {
   Project: 'Az-Stamper'
   ManagedBy: 'Bicep'
@@ -74,6 +75,17 @@ resource storageAccountRef 'Microsoft.Storage/storageAccounts@2023-05-01' existi
 }
 
 
+// Static Web App for config management UI
+module swa 'modules/swa.bicep' = {
+  name: 'swa'
+  params: {
+    name: swaName
+    location: location
+    tags: tags
+  }
+}
+
 output functionAppName string = functionApp.outputs.functionAppName
 output functionAppId string = functionApp.outputs.functionAppId
 output principalId string = functionApp.outputs.principalId
+output swaHostname string = swa.outputs.defaultHostname
