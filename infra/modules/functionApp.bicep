@@ -126,6 +126,10 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
           name: 'StamperConfig__ConfigBlobUri'
           value: 'https://${storageAccountName}.blob.${environment().suffixes.storage}/config/stamper.json'
         }
+        {
+          name: 'StamperConfig__SelfPrincipalId'
+          value: functionApp.identity.principalId
+        }
       ]
     }
   }

@@ -335,4 +335,32 @@ public class StampOrchestratorTests
 
         _tagService.Verify(x => x.SetTagsAsync(It.IsAny<string>(), It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
+
+    [Fact]
+    public async Task SkipsSelfTriggeredEvents()
+    {
+        var config = new StamperConfig
+        {
+            TagMap = new Dictionary<string, TagEntry>
+            {
+                ["Creator"] = new() { Value = "{caller}", Overwrite = false }
+            },
+            IgnorePatterns = new List<string>(),
+            SelfPrincipalId = "self-msi-id"
+        };
+
+        var orchestrator = CreateOrchestrator(config);
+        var evt = new ResourceEvent
+        {
+            ResourceId = "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1",
+            Caller = null,
+            PrincipalType = "ServicePrincipal",
+            PrincipalId = "self-msi-id"
+        };
+
+        await orchestrator.ProcessAsync(evt);
+
+        _tagService.Verify(x => x.GetTagsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _tagService.Verify(x => x.SetTagsAsync(It.IsAny<string>(), It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
 }

@@ -38,6 +38,14 @@ public class StampOrchestrator
             return;
         }
 
+        // Skip events triggered by our own managed identity (prevents recursive tag-write loop)
+        if (!string.IsNullOrEmpty(_globalConfig.SelfPrincipalId) &&
+            string.Equals(evt.PrincipalId, _globalConfig.SelfPrincipalId, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogInformation("Skipping self-triggered event for {ResourceId}", evt.ResourceId);
+            return;
+        }
+
         // Resolve per-subscription config
         var subscriptionId = evt.SubscriptionId;
         var resourceType = evt.ResourceType ?? "Unknown";
