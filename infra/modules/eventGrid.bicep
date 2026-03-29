@@ -33,6 +33,7 @@ resource eventSubscription 'Microsoft.EventGrid/systemTopics/eventSubscriptions@
           key: 'data.operationName'
           values: [
             'Microsoft.Resources/deployments'
+            'Microsoft.Resources/tags'
           ]
         }
       ]

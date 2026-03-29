@@ -229,6 +229,7 @@ public class StampOrchestratorTests
             .Setup(x => x.GetTagsAsync(resourceId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<string, string>
             {
+                ["Creator"] = "original@contoso.com",
                 ["LastModifiedBy"] = "previous-user@contoso.com"
             });
         _tagService
@@ -334,5 +335,89 @@ public class StampOrchestratorTests
         await orchestrator.ProcessAsync(evt);
 
         _tagService.Verify(x => x.SetTagsAsync(It.IsAny<string>(), It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SkipsSelfTriggeredEvents()
+    {
+        var config = new StamperConfig
+        {
+            TagMap = new Dictionary<string, TagEntry>
+            {
+                ["Creator"] = new() { Value = "{caller}", Overwrite = false }
+            },
+            IgnorePatterns = new List<string>(),
+            SelfPrincipalId = "self-msi-id"
+        };
+
+        var orchestrator = CreateOrchestrator(config);
+        var evt = new ResourceEvent
+        {
+            ResourceId = "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1",
+            Caller = null,
+            PrincipalType = "ServicePrincipal",
+            PrincipalId = "self-msi-id"
+        };
+
+        await orchestrator.ProcessAsync(evt);
+
+        _tagService.Verify(x => x.GetTagsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _tagService.Verify(x => x.SetTagsAsync(It.IsAny<string>(), It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SkipsOverwriteTagsOnFirstStamp()
+    {
+        var resourceId = "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1";
+        _tagService
+            .Setup(x => x.GetTagsAsync(resourceId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, string>());
+
+        Dictionary<string, string>? capturedTags = null;
+        _tagService
+            .Setup(x => x.SetTagsAsync(resourceId, It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, Dictionary<string, string>, CancellationToken>((_, tags, _) => capturedTags = tags)
+            .ReturnsAsync(true);
+
+        var orchestrator = CreateOrchestrator();
+        var evt = new ResourceEvent { ResourceId = resourceId, Caller = "alice@contoso.com" };
+
+        await orchestrator.ProcessAsync(evt);
+
+        Assert.NotNull(capturedTags);
+        Assert.True(capturedTags.ContainsKey("Creator"));
+        Assert.True(capturedTags.ContainsKey("CreatedOn"));
+        Assert.True(capturedTags.ContainsKey("StampedBy"));
+        Assert.False(capturedTags.ContainsKey("LastModifiedBy"), "LastModifiedBy should not be set on first stamp");
+    }
+
+    [Fact]
+    public async Task AppliesOverwriteTagsOnSubsequentStamp()
+    {
+        var resourceId = "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1";
+        _tagService
+            .Setup(x => x.GetTagsAsync(resourceId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, string>
+            {
+                ["Creator"] = "alice@contoso.com",
+                ["CreatedOn"] = "2026-01-01T00:00:00Z",
+                ["StampedBy"] = "Az-Stamper"
+            });
+
+        Dictionary<string, string>? capturedTags = null;
+        _tagService
+            .Setup(x => x.SetTagsAsync(resourceId, It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, Dictionary<string, string>, CancellationToken>((_, tags, _) => capturedTags = tags)
+            .ReturnsAsync(true);
+
+        var orchestrator = CreateOrchestrator();
+        var evt = new ResourceEvent { ResourceId = resourceId, Caller = "bob@contoso.com" };
+
+        await orchestrator.ProcessAsync(evt);
+
+        Assert.NotNull(capturedTags);
+        Assert.True(capturedTags.ContainsKey("LastModifiedBy"));
+        Assert.Equal("bob@contoso.com", capturedTags["LastModifiedBy"]);
+        Assert.False(capturedTags.ContainsKey("Creator"), "Creator should not be overwritten");
     }
 }
