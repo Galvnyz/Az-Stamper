@@ -69,22 +69,22 @@ function renderSubscriptionsTab() {
     empty.appendChild(emptyTitle);
     empty.appendChild(emptyDesc);
     panel.appendChild(empty);
-    return;
+  } else {
+    // Card grid
+    const grid = document.createElement('div');
+    grid.className = 'card-grid';
+
+    subIds.forEach(function(subId) {
+      const sub = subs[subId];
+      const card = buildSubscriptionCard(subId, sub);
+      grid.appendChild(card);
+    });
+
+    panel.appendChild(grid);
   }
 
-  // Card grid
-  const grid = document.createElement('div');
-  grid.className = 'card-grid';
-
-  subIds.forEach(function(subId) {
-    const sub = subs[subId];
-    const card = buildSubscriptionCard(subId, sub);
-    grid.appendChild(card);
-  });
-
-  panel.appendChild(grid);
-
   // Discovered (enrolled but not configured) section — populated by verifyAllEnrollments
+  // Must be created even when config is empty so discovery has a render target
   const discoveredSection = document.createElement('div');
   discoveredSection.id = 'discovered-subs-section';
   panel.appendChild(discoveredSection);
@@ -512,8 +512,8 @@ async function verifyAllEnrollments() {
       el.title = 'Event Grid system topic found';
     } else {
       el.className = 'badge badge-warning';
-      el.textContent = 'Config Only';
-      el.title = 'No Event Grid system topic found — run enroll.bicep to deploy';
+      el.textContent = 'No Event Grid';
+      el.title = 'In config but no Event Grid system topic deployed — run enroll.bicep to enable tagging';
     }
   });
 
@@ -544,10 +544,10 @@ async function checkEventGridEnrollment(subId, token) {
   var data = await azureFetch(url, token);
   var topics = (data && data.value) ? data.value : [];
 
-  // Look for a system topic sourced from this subscription
+  // Look for a system topic sourced from this subscription (case-insensitive)
   return topics.some(function(topic) {
-    return topic.properties &&
-      topic.properties.topicType === 'Microsoft.Resources.Subscriptions';
+    var topicType = (topic.properties && topic.properties.topicType) || '';
+    return topicType.toLowerCase() === 'microsoft.resources.subscriptions';
   });
 }
 
