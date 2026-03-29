@@ -3,6 +3,6 @@
     "rewrite": "/index.html"
   },
   "globalHeaders": {
-    "Content-Security-Policy": "default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.blob.core.windows.net https://management.azure.com https://api.loganalytics.io https://login.microsoftonline.com https://graph.microsoft.com"
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://*.blob.core.windows.net https://management.azure.com https://api.loganalytics.io https://login.microsoftonline.com https://graph.microsoft.com"
   }
 }
