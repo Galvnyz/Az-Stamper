@@ -304,10 +304,12 @@ ul, ol {
   justify-content: center;
   gap: 6px;
   padding: 6px 16px;
+  background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius);
   font-size: 0.875rem;
   font-weight: 500;
+  color: var(--text-primary);
   cursor: pointer;
   white-space: nowrap;
   transition: background var(--transition), border-color var(--transition),

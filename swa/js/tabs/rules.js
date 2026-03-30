@@ -216,9 +216,9 @@ function renderRulesTab(selectedSubId) {
   var subConfig = configSubs[selectedSubId];
 
   // ── Section A: Global Defaults (read-only) ────────────────────────────────
-  const globalSection = buildSection('Global Defaults', 'Applied to all resources. Read-only — configure per-subscription overrides below.');
+  var globalSection2 = buildSection('Global Defaults', 'Applied to all resources. Read-only — configure per-subscription overrides below.');
 
-  const globalDefaults = [
+  var globalDefaults2 = [
     { name: 'Creator',        value: '{caller}',    overwrite: false },
     { name: 'CreatedOn',      value: '{timestamp}', overwrite: false },
     { name: 'LastModifiedBy', value: '{caller}',    overwrite: true  },
@@ -226,10 +226,10 @@ function renderRulesTab(selectedSubId) {
     { name: 'StampedBy',      value: 'Az-Stamper',  overwrite: false },
   ];
 
-  const globalBody = globalSection.querySelector('.rules-section-body');
+  var globalBody2 = globalSection2.querySelector('.rules-section-body');
 
-  globalDefaults.forEach(function(def) {
-    const row = document.createElement('div');
+  globalDefaults2.forEach(function(def) {
+    var row = document.createElement('div');
     row.className = 'rule-row';
 
     const keyEl = document.createElement('div');
@@ -241,20 +241,20 @@ function renderRulesTab(selectedSubId) {
     valueEl.style.fontFamily = 'monospace';
     valueEl.textContent = def.value;
 
-    const overwriteChip = document.createElement('span');
+    var overwriteChip = document.createElement('span');
     overwriteChip.className = 'tag-chip ' + (def.overwrite ? 'tag-new' : 'tag-existing');
     overwriteChip.textContent = def.overwrite ? 'overwrite: true' : 'overwrite: false';
 
     row.appendChild(keyEl);
     row.appendChild(valueEl);
     row.appendChild(overwriteChip);
-    globalBody.appendChild(row);
+    globalBody2.appendChild(row);
   });
 
-  panel.appendChild(globalSection);
+  panel.appendChild(globalSection2);
 
   // ── Section B: Subscription Overrides (editable) ─────────────────────────
-  const overridesSection = buildSection(
+  var overridesSection = buildSection(
     'Subscription Overrides',
     'Per-subscription tag overrides that extend or replace global defaults for: ' +
     ((subConfig.displayName || '').trim() || selectedSubId)
