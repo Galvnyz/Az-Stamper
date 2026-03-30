@@ -1,6 +1,6 @@
 using '../main.bicep'
 
-param storageAccountName = 'stazstamperdev'
-param functionAppName = 'func-az-stamper-dev'
-param appInsightsName = 'ai-az-stamper-dev'
+param storageAccountName = 'TODO-REPLACE'
+param functionAppName = 'TODO-REPLACE'
+param appInsightsName = 'TODO-REPLACE'
 param environment = 'dev'
