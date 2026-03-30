@@ -93,7 +93,7 @@ async function refreshActivity() {
   var refreshBtn = document.getElementById('activity-refresh-btn');
   if (refreshBtn) {
     refreshBtn.disabled = true;
-    refreshBtn.textContent = 'Loading…';
+    refreshBtn.textContent = 'Loading\u2026';
   }
 
   // Show loading state
@@ -103,7 +103,7 @@ async function refreshActivity() {
   var spinner = document.createElement('div');
   spinner.className = 'spinner';
   var loadingText = document.createElement('span');
-  loadingText.textContent = 'Loading activity…';
+  loadingText.textContent = 'Loading activity\u2026';
   loading.appendChild(spinner);
   loading.appendChild(loadingText);
   resultsEl.appendChild(loading);
@@ -133,7 +133,8 @@ async function refreshActivity() {
       '| extend SubscriptionId = extract("/subscriptions/([^/]+)", 1, ResourceId)',
       '| extend ResourceType = extract("/providers/([^/]+/[^/]+)", 1, ResourceId)',
       '| extend ResourceName = extract("[^/]+$", 0, ResourceId)',
-      '| project timestamp, ResourceName, ResourceType, SubscriptionId, message',
+      '| extend AppliedTags = tostring(customDimensions.AppliedTags)',
+      '| project timestamp, ResourceName, ResourceType, SubscriptionId, message, AppliedTags',
       '| order by timestamp desc',
       '| take 100',
     ].join('\n');
@@ -176,6 +177,19 @@ function parseAppInsightsResponse(data) {
     });
     return obj;
   });
+}
+
+// ── Subscription name resolution (#72) ───────────────────────────────────────
+
+function resolveSubscriptionName(subId) {
+  if (!subId) return '';
+  var enrolled = window._enrollmentCache || [];
+  for (var i = 0; i < enrolled.length; i++) {
+    if (enrolled[i].subscriptionId === subId) {
+      return enrolled[i].displayName || '';
+    }
+  }
+  return '';
 }
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
@@ -249,12 +263,30 @@ function renderActivityResults(container, rows) {
     typeCell.textContent = row.ResourceType || '\u2014';
     tr.appendChild(typeCell);
 
-    // Subscription ID (truncated)
+    // Subscription — show display name + full ID (#72)
     var subCell = document.createElement('td');
-    subCell.style.cssText = cellStyle + 'font-family:monospace;font-size:0.8125rem;color:var(--text-secondary);white-space:nowrap;';
+    subCell.style.cssText = cellStyle + 'white-space:nowrap;';
     var subId = row.SubscriptionId || '';
-    subCell.title = escapeHtml(subId);
-    subCell.textContent = subId ? subId.substring(0, 8) + '\u2026' : '\u2014';
+    var subName = resolveSubscriptionName(subId);
+
+    if (subName) {
+      var nameSpan = document.createElement('div');
+      nameSpan.style.cssText = 'font-weight:600;font-size:0.8125rem;color:var(--text-primary);';
+      nameSpan.textContent = subName;
+
+      var idSpan = document.createElement('div');
+      idSpan.style.cssText = 'font-family:monospace;font-size:0.6875rem;color:var(--text-secondary);margin-top:1px;';
+      idSpan.textContent = subId;
+
+      subCell.appendChild(nameSpan);
+      subCell.appendChild(idSpan);
+    } else if (subId) {
+      subCell.style.cssText += 'font-family:monospace;font-size:0.8125rem;color:var(--text-secondary);';
+      subCell.title = escapeHtml(subId);
+      subCell.textContent = subId;
+    } else {
+      subCell.textContent = '\u2014';
+    }
     tr.appendChild(subCell);
 
     // Outcome
@@ -269,11 +301,71 @@ function renderActivityResults(container, rows) {
     tr.appendChild(outcomeCell);
 
     tbody.appendChild(tr);
+
+    // Expandable tag detail row (#67)
+    var appliedTags = parseAppliedTags(row.AppliedTags);
+    if (appliedTags && Object.keys(appliedTags).length > 0) {
+      var detailRow = document.createElement('tr');
+      detailRow.className = 'tag-detail-row';
+      detailRow.style.display = 'none';
+
+      var detailCell = document.createElement('td');
+      detailCell.colSpan = 5;
+      detailCell.style.cssText = 'padding:8px 12px 12px;border-bottom:1px solid var(--border);background:var(--bg-secondary);';
+
+      var tagLabel = document.createElement('div');
+      tagLabel.style.cssText = 'font-size:0.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:6px;';
+      tagLabel.textContent = 'Applied Tags';
+      detailCell.appendChild(tagLabel);
+
+      var chipContainer = document.createElement('div');
+      chipContainer.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;';
+
+      Object.keys(appliedTags).forEach(function(key) {
+        var chip = document.createElement('span');
+        chip.className = 'tag-chip tag-new';
+        chip.style.cssText += 'font-size:0.75rem;';
+        chip.textContent = key + ' = ' + appliedTags[key];
+        chipContainer.appendChild(chip);
+      });
+
+      detailCell.appendChild(chipContainer);
+      detailRow.appendChild(detailCell);
+      tbody.appendChild(detailRow);
+
+      // Make the main row clickable to toggle detail
+      tr.style.cursor = 'pointer';
+      tr.addEventListener('click', (function(detail, mainRow) {
+        return function() {
+          var isOpen = detail.style.display !== 'none';
+          // Collapse all other detail rows
+          tbody.querySelectorAll('.tag-detail-row').forEach(function(r) {
+            r.style.display = 'none';
+          });
+          tbody.querySelectorAll('.activity-row-expanded').forEach(function(r) {
+            r.classList.remove('activity-row-expanded');
+          });
+          if (!isOpen) {
+            detail.style.display = '';
+            mainRow.classList.add('activity-row-expanded');
+          }
+        };
+      })(detailRow, tr));
+    }
   });
 
   table.appendChild(tbody);
   tableWrapper.appendChild(table);
   container.appendChild(tableWrapper);
+}
+
+function parseAppliedTags(tagsStr) {
+  if (!tagsStr || tagsStr === 'null' || tagsStr === '') return null;
+  try {
+    return JSON.parse(tagsStr);
+  } catch (e) {
+    return null;
+  }
 }
 
 function classifyOutcome(message) {
