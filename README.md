@@ -1,4 +1,23 @@
-# Az-Stamper
+<p align="center">
+  <img src="swa/img/az-stamper-icon.png" alt="Az-Stamper" width="180" />
+</p>
+
+<h1 align="center">Az-Stamper</h1>
+
+<p align="center">
+  <a href="https://github.com/Galvnyz/Az-Stamper/actions/workflows/ci.yml"><img src="https://github.com/Galvnyz/Az-Stamper/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/Galvnyz/Az-Stamper/releases/latest"><img src="https://img.shields.io/github/v/release/Galvnyz/Az-Stamper?label=release&color=blue" alt="Latest Release" /></a>
+  <a href="https://github.com/Galvnyz/Az-Stamper/releases"><img src="https://img.shields.io/github/downloads/Galvnyz/Az-Stamper/total?label=deploys&color=green" alt="Total Downloads" /></a>
+  <a href="https://github.com/Galvnyz/Az-Stamper"><img src="https://img.shields.io/github/languages/code-size/Galvnyz/Az-Stamper?label=code%20size" alt="Code Size" /></a>
+  <a href="https://github.com/Galvnyz/Az-Stamper/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Galvnyz/Az-Stamper" alt="License" /></a>
+  <a href="https://github.com/Galvnyz/Az-Stamper/stargazers"><img src="https://img.shields.io/github/stars/Galvnyz/Az-Stamper?style=flat" alt="Stars" /></a>
+</p>
+
+<p align="center">
+  <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fdeploy.json"><img src="https://aka.ms/deploytoazurebutton" alt="Deploy to Azure" /></a>
+</p>
+
+---
 
 Az-Stamper solves a fundamental Azure governance problem: **it's surprisingly hard to know who created a resource.**
 
