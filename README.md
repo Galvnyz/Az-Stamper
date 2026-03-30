@@ -120,7 +120,34 @@ When a user creates a resource, their UPN (e.g., `alice@contoso.com`) is embedde
 
 ## Deployment
 
-### What You'll Need
+### One-Click Deploy
+
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fdeploy.json)
+
+This deploys the complete Az-Stamper solution to your Azure subscription:
+- Resource group, storage account, function app, App Insights, Log Analytics
+- Event Grid system topic and event subscription
+- Subscription-scoped RBAC (Reader + Tag Contributor)
+- Function code (via WEBSITE_RUN_FROM_PACKAGE)
+
+**Prerequisites:**
+- An Azure subscription with **Owner** or **Contributor + User Access Administrator** role
+- The `Microsoft.EventGrid` resource provider registered on the subscription (`az provider register --namespace Microsoft.EventGrid`)
+
+**After deployment**, resources begin tagging automatically within minutes. To enroll additional subscriptions, see [Multi-Subscription Enrollment](#multi-subscription-enrollment).
+
+**Optional post-deploy step** — set the function's own identity to prevent self-tagging (defense-in-depth; Event Grid filters already prevent recursive loops):
+
+```bash
+PRINCIPAL_ID=$(az functionapp identity show --name <your-function-app> --resource-group <your-rg> --query principalId -o tsv)
+az functionapp config appsettings set --name <your-function-app> --resource-group <your-rg> --settings "StamperConfig__SelfPrincipalId=$PRINCIPAL_ID"
+```
+
+---
+
+### Developer Setup (CI/CD)
+
+If you're contributing to Az-Stamper or want to deploy via GitHub Actions CI/CD instead of the one-click button, you'll need these tools:
 
 | Tool | What It's For | Install |
 |------|---------------|---------|

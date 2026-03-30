@@ -1,0 +1,902 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.41.2.15936",
+      "templateHash": "9812919909172077100"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "metadata": {
+        "description": "Azure region for all resources."
+      }
+    },
+    "resourceGroupName": {
+      "type": "string",
+      "defaultValue": "rg-az-stamper",
+      "metadata": {
+        "description": "Name of the resource group to create or use."
+      }
+    },
+    "storageAccountName": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 24,
+      "metadata": {
+        "description": "Globally unique name for the storage account (3-24 lowercase letters/numbers)."
+      }
+    },
+    "functionAppName": {
+      "type": "string",
+      "defaultValue": "func-az-stamper",
+      "metadata": {
+        "description": "Name for the function app."
+      }
+    },
+    "appInsightsName": {
+      "type": "string",
+      "defaultValue": "ai-az-stamper",
+      "metadata": {
+        "description": "Name for the Application Insights instance."
+      }
+    },
+    "environment": {
+      "type": "string",
+      "defaultValue": "prod",
+      "allowedValues": [
+        "dev",
+        "prod"
+      ],
+      "metadata": {
+        "description": "Environment tag value. Defaults to prod for self-service deployments (main.bicep defaults to dev for CI/CD)."
+      }
+    },
+    "packageUrl": {
+      "type": "string",
+      "defaultValue": "https://github.com/Galvnyz/Az-Stamper/releases/latest/download/az-stamper.zip",
+      "metadata": {
+        "description": "URL of the function app deployment package (pre-filled with latest release)."
+      }
+    },
+    "systemTopicName": {
+      "type": "string",
+      "defaultValue": "evgt-az-stamper",
+      "metadata": {
+        "description": "Name for the Event Grid system topic."
+      }
+    },
+    "eventSubscriptionName": {
+      "type": "string",
+      "defaultValue": "evgs-az-stamper",
+      "metadata": {
+        "description": "Name for the Event Grid event subscription."
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2024-03-01",
+      "name": "[parameters('resourceGroupName')]",
+      "location": "[parameters('location')]",
+      "tags": {
+        "Project": "Az-Stamper",
+        "ManagedBy": "Bicep",
+        "Environment": "[parameters('environment')]"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(subscription().id, parameters('functionAppName'), 'acdd72a7-3385-48ef-bd42-f606fba81ae7')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7')]",
+        "principalId": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'hub'), '2025-04-01').outputs.principalId.value]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'hub')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(subscription().id, parameters('functionAppName'), '4a9ae827-6dc8-4573-8ac7-8239d42aa03f')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4a9ae827-6dc8-4573-8ac7-8239d42aa03f')]",
+        "principalId": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'hub'), '2025-04-01').outputs.principalId.value]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'hub')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "hub",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "storageAccountName": {
+            "value": "[parameters('storageAccountName')]"
+          },
+          "functionAppName": {
+            "value": "[parameters('functionAppName')]"
+          },
+          "appInsightsName": {
+            "value": "[parameters('appInsightsName')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "packageUrl": {
+            "value": "[parameters('packageUrl')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "10713126596406450262"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]"
+            },
+            "storageAccountName": {
+              "type": "string"
+            },
+            "functionAppName": {
+              "type": "string"
+            },
+            "appInsightsName": {
+              "type": "string"
+            },
+            "logAnalyticsName": {
+              "type": "string",
+              "defaultValue": "[format('{0}-law', parameters('functionAppName'))]"
+            },
+            "environment": {
+              "type": "string",
+              "defaultValue": "dev"
+            },
+            "swaName": {
+              "type": "string",
+              "defaultValue": "[format('{0}-config', parameters('functionAppName'))]"
+            },
+            "workbookName": {
+              "type": "string",
+              "defaultValue": "Az-Stamper Activity Dashboard"
+            },
+            "packageUrl": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "URL of the function app deployment package. Leave empty for CI/CD zip-push deployment."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {
+                "Project": "Az-Stamper",
+                "ManagedBy": "Bicep",
+                "Environment": "[parameters('environment')]"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+              "name": "[guid(parameters('storageAccountName'), parameters('functionAppName'), 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')]",
+                "principalId": "[reference(resourceId('Microsoft.Resources/deployments', 'functionApp'), '2025-04-01').outputs.principalId.value]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Resources/deployments', 'functionApp')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+              "name": "[guid(parameters('storageAccountName'), parameters('functionAppName'), '17d1049b-9a84-46fb-8f53-869881c3d3ab')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '17d1049b-9a84-46fb-8f53-869881c3d3ab')]",
+                "principalId": "[reference(resourceId('Microsoft.Resources/deployments', 'functionApp'), '2025-04-01').outputs.principalId.value]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Resources/deployments', 'functionApp')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2025-04-01",
+              "name": "storage",
+              "properties": {
+                "expressionEvaluationOptions": {
+                  "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                  "name": {
+                    "value": "[parameters('storageAccountName')]"
+                  },
+                  "location": {
+                    "value": "[parameters('location')]"
+                  },
+                  "tags": {
+                    "value": "[parameters('tags')]"
+                  }
+                },
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "metadata": {
+                    "_generator": {
+                      "name": "bicep",
+                      "version": "0.41.2.15936",
+                      "templateHash": "8125094186110672705"
+                    }
+                  },
+                  "parameters": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "location": {
+                      "type": "string"
+                    },
+                    "tags": {
+                      "type": "object"
+                    },
+                    "deploymentContainerName": {
+                      "type": "string",
+                      "defaultValue": "deployments"
+                    }
+                  },
+                  "resources": [
+                    {
+                      "type": "Microsoft.Storage/storageAccounts",
+                      "apiVersion": "2023-05-01",
+                      "name": "[parameters('name')]",
+                      "location": "[parameters('location')]",
+                      "tags": "[parameters('tags')]",
+                      "kind": "StorageV2",
+                      "sku": {
+                        "name": "Standard_LRS"
+                      },
+                      "properties": {
+                        "supportsHttpsTrafficOnly": true,
+                        "minimumTlsVersion": "TLS1_2",
+                        "allowBlobPublicAccess": false
+                      }
+                    },
+                    {
+                      "type": "Microsoft.Storage/storageAccounts/blobServices",
+                      "apiVersion": "2023-05-01",
+                      "name": "[format('{0}/{1}', parameters('name'), 'default')]",
+                      "dependsOn": [
+                        "[resourceId('Microsoft.Storage/storageAccounts', parameters('name'))]"
+                      ]
+                    },
+                    {
+                      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+                      "apiVersion": "2023-05-01",
+                      "name": "[format('{0}/{1}/{2}', parameters('name'), 'default', parameters('deploymentContainerName'))]",
+                      "dependsOn": [
+                        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('name'), 'default')]"
+                      ]
+                    },
+                    {
+                      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+                      "apiVersion": "2023-05-01",
+                      "name": "[format('{0}/{1}/{2}', parameters('name'), 'default', 'config')]",
+                      "dependsOn": [
+                        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('name'), 'default')]"
+                      ]
+                    }
+                  ],
+                  "outputs": {
+                    "storageAccountName": {
+                      "type": "string",
+                      "value": "[parameters('name')]"
+                    },
+                    "storageAccountId": {
+                      "type": "string",
+                      "value": "[resourceId('Microsoft.Storage/storageAccounts', parameters('name'))]"
+                    },
+                    "primaryBlobEndpoint": {
+                      "type": "string",
+                      "value": "[reference(resourceId('Microsoft.Storage/storageAccounts', parameters('name')), '2023-05-01').primaryEndpoints.blob]"
+                    },
+                    "deploymentContainerName": {
+                      "type": "string",
+                      "value": "[parameters('deploymentContainerName')]"
+                    },
+                    "configContainerName": {
+                      "type": "string",
+                      "value": "config"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2025-04-01",
+              "name": "monitoring",
+              "properties": {
+                "expressionEvaluationOptions": {
+                  "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                  "logAnalyticsName": {
+                    "value": "[parameters('logAnalyticsName')]"
+                  },
+                  "appInsightsName": {
+                    "value": "[parameters('appInsightsName')]"
+                  },
+                  "location": {
+                    "value": "[parameters('location')]"
+                  },
+                  "tags": {
+                    "value": "[parameters('tags')]"
+                  }
+                },
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "metadata": {
+                    "_generator": {
+                      "name": "bicep",
+                      "version": "0.41.2.15936",
+                      "templateHash": "2105674012525231967"
+                    }
+                  },
+                  "parameters": {
+                    "logAnalyticsName": {
+                      "type": "string"
+                    },
+                    "appInsightsName": {
+                      "type": "string"
+                    },
+                    "location": {
+                      "type": "string"
+                    },
+                    "tags": {
+                      "type": "object"
+                    }
+                  },
+                  "resources": [
+                    {
+                      "type": "Microsoft.OperationalInsights/workspaces",
+                      "apiVersion": "2023-09-01",
+                      "name": "[parameters('logAnalyticsName')]",
+                      "location": "[parameters('location')]",
+                      "tags": "[parameters('tags')]",
+                      "properties": {
+                        "sku": {
+                          "name": "PerGB2018"
+                        },
+                        "retentionInDays": 30
+                      }
+                    },
+                    {
+                      "type": "Microsoft.Insights/components",
+                      "apiVersion": "2020-02-02",
+                      "name": "[parameters('appInsightsName')]",
+                      "location": "[parameters('location')]",
+                      "tags": "[parameters('tags')]",
+                      "kind": "web",
+                      "properties": {
+                        "Application_Type": "web",
+                        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsName'))]"
+                      },
+                      "dependsOn": [
+                        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsName'))]"
+                      ]
+                    }
+                  ],
+                  "outputs": {
+                    "appInsightsConnectionString": {
+                      "type": "string",
+                      "value": "[reference(resourceId('Microsoft.Insights/components', parameters('appInsightsName')), '2020-02-02').ConnectionString]"
+                    },
+                    "appInsightsId": {
+                      "type": "string",
+                      "value": "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2025-04-01",
+              "name": "functionApp",
+              "properties": {
+                "expressionEvaluationOptions": {
+                  "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                  "name": {
+                    "value": "[parameters('functionAppName')]"
+                  },
+                  "location": {
+                    "value": "[parameters('location')]"
+                  },
+                  "tags": {
+                    "value": "[parameters('tags')]"
+                  },
+                  "storageAccountName": {
+                    "value": "[parameters('storageAccountName')]"
+                  },
+                  "storageBlobEndpoint": {
+                    "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage'), '2025-04-01').outputs.primaryBlobEndpoint.value]"
+                  },
+                  "deploymentContainerName": {
+                    "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage'), '2025-04-01').outputs.deploymentContainerName.value]"
+                  },
+                  "appInsightsConnectionString": {
+                    "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.appInsightsConnectionString.value]"
+                  },
+                  "packageUrl": {
+                    "value": "[parameters('packageUrl')]"
+                  }
+                },
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "metadata": {
+                    "_generator": {
+                      "name": "bicep",
+                      "version": "0.41.2.15936",
+                      "templateHash": "16457686307877109005"
+                    }
+                  },
+                  "parameters": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "location": {
+                      "type": "string"
+                    },
+                    "tags": {
+                      "type": "object"
+                    },
+                    "storageAccountName": {
+                      "type": "string"
+                    },
+                    "storageBlobEndpoint": {
+                      "type": "string"
+                    },
+                    "deploymentContainerName": {
+                      "type": "string"
+                    },
+                    "appInsightsConnectionString": {
+                      "type": "string"
+                    },
+                    "packageUrl": {
+                      "type": "string",
+                      "defaultValue": "",
+                      "metadata": {
+                        "description": "URL of the function app deployment package. When set, enables run-from-package."
+                      }
+                    }
+                  },
+                  "resources": [
+                    {
+                      "type": "Microsoft.Web/serverfarms",
+                      "apiVersion": "2023-12-01",
+                      "name": "[format('{0}-plan', parameters('name'))]",
+                      "location": "[parameters('location')]",
+                      "tags": "[parameters('tags')]",
+                      "kind": "functionapp",
+                      "sku": {
+                        "tier": "FlexConsumption",
+                        "name": "FC1"
+                      },
+                      "properties": {
+                        "reserved": true
+                      }
+                    },
+                    {
+                      "type": "Microsoft.Web/sites",
+                      "apiVersion": "2024-04-01",
+                      "name": "[parameters('name')]",
+                      "location": "[parameters('location')]",
+                      "tags": "[parameters('tags')]",
+                      "kind": "functionapp,linux",
+                      "identity": {
+                        "type": "SystemAssigned"
+                      },
+                      "properties": {
+                        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', format('{0}-plan', parameters('name')))]",
+                        "httpsOnly": true,
+                        "functionAppConfig": {
+                          "deployment": {
+                            "storage": {
+                              "type": "blobContainer",
+                              "value": "[format('{0}{1}', parameters('storageBlobEndpoint'), parameters('deploymentContainerName'))]",
+                              "authentication": {
+                                "type": "SystemAssignedIdentity"
+                              }
+                            }
+                          },
+                          "scaleAndConcurrency": {
+                            "maximumInstanceCount": 100,
+                            "instanceMemoryMB": 2048
+                          },
+                          "runtime": {
+                            "name": "dotnet-isolated",
+                            "version": "8.0"
+                          }
+                        },
+                        "siteConfig": {
+                          "minTlsVersion": "1.2",
+                          "appSettings": "[concat(createArray(createObject('name', 'AzureWebJobsStorage__blobServiceUri', 'value', format('https://{0}.blob.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'AzureWebJobsStorage__queueServiceUri', 'value', format('https://{0}.queue.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'AzureWebJobsStorage__tableServiceUri', 'value', format('https://{0}.table.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'value', parameters('appInsightsConnectionString')), createObject('name', 'StamperConfig__TagMap__Creator__Value', 'value', '{caller}'), createObject('name', 'StamperConfig__TagMap__Creator__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__TagMap__CreatedOn__Value', 'value', '{timestamp}'), createObject('name', 'StamperConfig__TagMap__CreatedOn__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__TagMap__LastModifiedBy__Value', 'value', '{caller}'), createObject('name', 'StamperConfig__TagMap__LastModifiedBy__Overwrite', 'value', 'true'), createObject('name', 'StamperConfig__TagMap__LastModifiedOn__Value', 'value', '{timestamp}'), createObject('name', 'StamperConfig__TagMap__LastModifiedOn__Overwrite', 'value', 'true'), createObject('name', 'StamperConfig__TagMap__StampedBy__Value', 'value', 'Az-Stamper'), createObject('name', 'StamperConfig__TagMap__StampedBy__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__IgnorePatterns__0', 'value', 'Microsoft.Resources/deployments'), createObject('name', 'StamperConfig__IgnorePatterns__1', 'value', 'Microsoft.Resources/tags'), createObject('name', 'StamperConfig__IgnorePatterns__2', 'value', 'Microsoft.Network/frontdoor'), createObject('name', 'StamperConfig__IgnorePatterns__3', 'value', 'Microsoft.Authorization/'), createObject('name', 'StamperConfig__IgnorePatterns__4', 'value', 'Microsoft.Resources/subscriptions'), createObject('name', 'StamperConfig__IgnorePatterns__5', 'value', 'Microsoft.ClassicCompute/'), createObject('name', 'StamperConfig__IgnorePatterns__6', 'value', 'Microsoft.Insights/diagnosticSettings'), createObject('name', 'StamperConfig__IgnorePatterns__7', 'value', 'Microsoft.Security/'), createObject('name', 'StamperConfig__IgnorePatterns__8', 'value', 'Microsoft.EventGrid/'), createObject('name', 'StamperConfig__ConfigBlobUri', 'value', format('https://{0}.blob.{1}/config/stamper.json', parameters('storageAccountName'), environment().suffixes.storage))), if(not(equals(parameters('packageUrl'), '')), createArray(createObject('name', 'WEBSITE_RUN_FROM_PACKAGE', 'value', parameters('packageUrl'))), createArray()))]"
+                        }
+                      },
+                      "dependsOn": [
+                        "[resourceId('Microsoft.Web/serverfarms', format('{0}-plan', parameters('name')))]"
+                      ]
+                    }
+                  ],
+                  "outputs": {
+                    "functionAppName": {
+                      "type": "string",
+                      "value": "[parameters('name')]"
+                    },
+                    "functionAppId": {
+                      "type": "string",
+                      "value": "[resourceId('Microsoft.Web/sites', parameters('name'))]"
+                    },
+                    "principalId": {
+                      "type": "string",
+                      "value": "[reference(resourceId('Microsoft.Web/sites', parameters('name')), '2024-04-01', 'full').identity.principalId]"
+                    }
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Resources/deployments', 'monitoring')]",
+                "[resourceId('Microsoft.Resources/deployments', 'storage')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2025-04-01",
+              "name": "workbook",
+              "properties": {
+                "expressionEvaluationOptions": {
+                  "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                  "name": {
+                    "value": "[parameters('workbookName')]"
+                  },
+                  "location": {
+                    "value": "[parameters('location')]"
+                  },
+                  "tags": {
+                    "value": "[parameters('tags')]"
+                  },
+                  "appInsightsId": {
+                    "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.appInsightsId.value]"
+                  }
+                },
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "metadata": {
+                    "_generator": {
+                      "name": "bicep",
+                      "version": "0.41.2.15936",
+                      "templateHash": "11265801989622852483"
+                    }
+                  },
+                  "parameters": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "location": {
+                      "type": "string"
+                    },
+                    "tags": {
+                      "type": "object"
+                    },
+                    "appInsightsId": {
+                      "type": "string"
+                    }
+                  },
+                  "variables": {
+                    "$fxv#0": "{\r\n  \"version\": \"Notebook/1.0\",\r\n  \"items\": [\r\n    {\r\n      \"type\": 9,\r\n      \"content\": {\r\n        \"version\": \"KqlParameterItem/1.0\",\r\n        \"parameters\": [\r\n          {\r\n            \"id\": \"time-range\",\r\n            \"version\": \"KqlParameterItem/1.0\",\r\n            \"name\": \"TimeRange\",\r\n            \"type\": 4,\r\n            \"typeSettings\": {\r\n              \"selectableValues\": [\r\n                { \"durationMs\": 3600000, \"displayName\": \"Last 1 hour\" },\r\n                { \"durationMs\": 86400000, \"displayName\": \"Last 24 hours\" },\r\n                { \"durationMs\": 604800000, \"displayName\": \"Last 7 days\" },\r\n                { \"durationMs\": 2592000000, \"displayName\": \"Last 30 days\" }\r\n              ],\r\n              \"allowCustom\": true\r\n            },\r\n            \"value\": { \"durationMs\": 86400000 }\r\n          }\r\n        ]\r\n      },\r\n      \"name\": \"parameters\"\r\n    },\r\n    {\r\n      \"type\": 1,\r\n      \"content\": {\r\n        \"json\": \"# Az-Stamper Activity Dashboard\\nMonitor tag stamping activity, success rates, and errors across enrolled subscriptions.\"\r\n      },\r\n      \"name\": \"header\"\r\n    },\r\n    {\r\n      \"type\": 3,\r\n      \"content\": {\r\n        \"version\": \"KqlItem/1.0\",\r\n        \"query\": \"traces\\n| where timestamp {TimeRange}\\n| where message startswith \\\"Stamped\\\"\\n| extend SubscriptionId = tostring(customDimensions.SubscriptionId)\\n| summarize\\n    TagsApplied = sum(toint(customDimensions.Count)),\\n    ResourcesStamped = dcount(tostring(customDimensions.ResourceId)),\\n    LastActivity = max(timestamp)\\n  by SubscriptionId\\n| order by ResourcesStamped desc\",\r\n        \"size\": 1,\r\n        \"title\": \"Active Subscriptions\",\r\n        \"queryType\": 0,\r\n        \"resourceType\": \"microsoft.insights/components\",\r\n        \"visualization\": \"table\",\r\n        \"gridSettings\": {\r\n          \"formatters\": [\r\n            { \"columnMatch\": \"TagsApplied\", \"formatter\": 4, \"formatOptions\": { \"palette\": \"blue\" } },\r\n            { \"columnMatch\": \"ResourcesStamped\", \"formatter\": 4, \"formatOptions\": { \"palette\": \"green\" } },\r\n            { \"columnMatch\": \"LastActivity\", \"formatter\": 6, \"formatOptions\": { \"dateFormat\": { \"formatName\": \"shortDateTimePattern\" } } }\r\n          ]\r\n        }\r\n      },\r\n      \"name\": \"active-subscriptions\"\r\n    },\r\n    {\r\n      \"type\": 3,\r\n      \"content\": {\r\n        \"version\": \"KqlItem/1.0\",\r\n        \"query\": \"traces\\n| where timestamp {TimeRange}\\n| where message startswith \\\"Stamped\\\" or message startswith \\\"Failed to stamp\\\" or message startswith \\\"Skipping\\\"\\n| extend SubscriptionId = tostring(customDimensions.SubscriptionId)\\n| extend Status = case(\\n    message startswith \\\"Stamped\\\", \\\"Success\\\",\\n    message startswith \\\"Failed\\\", \\\"Failed\\\",\\n    \\\"Skipped\\\")\\n| summarize Count = count() by SubscriptionId, Status\\n| order by SubscriptionId asc, Status asc\",\r\n        \"size\": 1,\r\n        \"title\": \"Tag Success / Failure / Skip Rates by Subscription\",\r\n        \"queryType\": 0,\r\n        \"resourceType\": \"microsoft.insights/components\",\r\n        \"visualization\": \"barchart\",\r\n        \"chartSettings\": {\r\n          \"xAxis\": \"SubscriptionId\",\r\n          \"yAxis\": [ \"Count\" ],\r\n          \"group\": \"Status\",\r\n          \"seriesLabelSettings\": [\r\n            { \"seriesName\": \"Success\", \"color\": \"green\" },\r\n            { \"seriesName\": \"Failed\", \"color\": \"red\" },\r\n            { \"seriesName\": \"Skipped\", \"color\": \"yellow\" }\r\n          ]\r\n        }\r\n      },\r\n      \"name\": \"success-failure-rates\"\r\n    },\r\n    {\r\n      \"type\": 3,\r\n      \"content\": {\r\n        \"version\": \"KqlItem/1.0\",\r\n        \"query\": \"traces\\n| where timestamp {TimeRange}\\n| where message startswith \\\"Stamped\\\"\\n| extend ResourceType = tostring(customDimensions.ResourceType)\\n| summarize\\n    ResourcesStamped = dcount(tostring(customDimensions.ResourceId)),\\n    TotalTags = sum(toint(customDimensions.Count))\\n  by ResourceType\\n| top 15 by ResourcesStamped desc\",\r\n        \"size\": 1,\r\n        \"title\": \"Most-Tagged Resource Types\",\r\n        \"queryType\": 0,\r\n        \"resourceType\": \"microsoft.insights/components\",\r\n        \"visualization\": \"barchart\",\r\n        \"chartSettings\": {\r\n          \"xAxis\": \"ResourceType\",\r\n          \"yAxis\": [ \"ResourcesStamped\" ]\r\n        }\r\n      },\r\n      \"name\": \"top-resource-types\"\r\n    },\r\n    {\r\n      \"type\": 3,\r\n      \"content\": {\r\n        \"version\": \"KqlItem/1.0\",\r\n        \"query\": \"traces\\n| where timestamp {TimeRange}\\n| where severityLevel >= 2\\n| where message !startswith \\\"Skipping self-triggered\\\"\\n| extend ResourceId = tostring(customDimensions.ResourceId)\\n| extend ResourceType = tostring(customDimensions.ResourceType)\\n| extend Reason = case(\\n    message has \\\"ignore pattern\\\", strcat(\\\"Ignore pattern: \\\", tostring(customDimensions.Pattern)),\\n    message has \\\"50-tag limit\\\", \\\"Tag limit exceeded\\\",\\n    message has \\\"Cannot resolve caller\\\", \\\"Caller unresolvable\\\",\\n    message has \\\"Could not read tags\\\", \\\"Tag read failed\\\",\\n    message has \\\"Failed to stamp\\\", \\\"Stamp failed\\\",\\n    message has \\\"disabled\\\", \\\"Subscription disabled\\\",\\n    message)\\n| project timestamp, ResourceId, ResourceType, Reason\\n| order by timestamp desc\\n| take 100\",\r\n        \"size\": 1,\r\n        \"title\": \"Errors & Skipped Resources\",\r\n        \"queryType\": 0,\r\n        \"resourceType\": \"microsoft.insights/components\",\r\n        \"visualization\": \"table\",\r\n        \"gridSettings\": {\r\n          \"formatters\": [\r\n            { \"columnMatch\": \"timestamp\", \"formatter\": 6, \"formatOptions\": { \"dateFormat\": { \"formatName\": \"shortDateTimePattern\" } } },\r\n            { \"columnMatch\": \"Reason\", \"formatter\": 1 }\r\n          ]\r\n        }\r\n      },\r\n      \"name\": \"errors-skipped\"\r\n    },\r\n    {\r\n      \"type\": 3,\r\n      \"content\": {\r\n        \"version\": \"KqlItem/1.0\",\r\n        \"query\": \"traces\\n| where timestamp {TimeRange}\\n| where message startswith \\\"Stamped\\\" or message startswith \\\"Failed to stamp\\\"\\n| extend Status = iff(message startswith \\\"Stamped\\\", \\\"Success\\\", \\\"Failed\\\")\\n| summarize Count = count() by bin(timestamp, 1h), Status\\n| order by timestamp asc\",\r\n        \"size\": 0,\r\n        \"title\": \"Tagging Activity Timeline\",\r\n        \"queryType\": 0,\r\n        \"resourceType\": \"microsoft.insights/components\",\r\n        \"visualization\": \"timechart\",\r\n        \"chartSettings\": {\r\n          \"seriesLabelSettings\": [\r\n            { \"seriesName\": \"Success\", \"color\": \"green\" },\r\n            { \"seriesName\": \"Failed\", \"color\": \"red\" }\r\n          ]\r\n        }\r\n      },\r\n      \"name\": \"activity-timeline\"\r\n    },\r\n    {\r\n      \"type\": 3,\r\n      \"content\": {\r\n        \"version\": \"KqlItem/1.0\",\r\n        \"query\": \"traces\\n| where timestamp {TimeRange}\\n| where message startswith \\\"Stamped\\\"\\n| extend Caller = tostring(customDimensions.Caller)\\n| summarize ResourcesStamped = dcount(tostring(customDimensions.ResourceId)) by Caller\\n| top 10 by ResourcesStamped desc\",\r\n        \"size\": 1,\r\n        \"title\": \"Top Callers (Who Triggered Stamping)\",\r\n        \"queryType\": 0,\r\n        \"resourceType\": \"microsoft.insights/components\",\r\n        \"visualization\": \"table\",\r\n        \"gridSettings\": {\r\n          \"formatters\": [\r\n            { \"columnMatch\": \"ResourcesStamped\", \"formatter\": 4, \"formatOptions\": { \"palette\": \"blue\" } }\r\n          ]\r\n        }\r\n      },\r\n      \"name\": \"top-callers\"\r\n    }\r\n  ],\r\n  \"$schema\": \"https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json\"\r\n}\r\n",
+                    "workbookId": "[guid(parameters('name'), resourceGroup().id, 'az-stamper-workbook')]"
+                  },
+                  "resources": [
+                    {
+                      "type": "Microsoft.Insights/workbooks",
+                      "apiVersion": "2023-06-01",
+                      "name": "[variables('workbookId')]",
+                      "location": "[parameters('location')]",
+                      "tags": "[parameters('tags')]",
+                      "kind": "shared",
+                      "properties": {
+                        "displayName": "[parameters('name')]",
+                        "category": "workbook",
+                        "sourceId": "[parameters('appInsightsId')]",
+                        "serializedData": "[variables('$fxv#0')]"
+                      }
+                    }
+                  ],
+                  "outputs": {
+                    "workbookId": {
+                      "type": "string",
+                      "value": "[resourceId('Microsoft.Insights/workbooks', variables('workbookId'))]"
+                    }
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Resources/deployments', 'monitoring')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2025-04-01",
+              "name": "swa",
+              "properties": {
+                "expressionEvaluationOptions": {
+                  "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                  "name": {
+                    "value": "[parameters('swaName')]"
+                  },
+                  "location": {
+                    "value": "[parameters('location')]"
+                  },
+                  "tags": {
+                    "value": "[parameters('tags')]"
+                  }
+                },
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "metadata": {
+                    "_generator": {
+                      "name": "bicep",
+                      "version": "0.41.2.15936",
+                      "templateHash": "3999590798322178456"
+                    }
+                  },
+                  "parameters": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "location": {
+                      "type": "string"
+                    },
+                    "tags": {
+                      "type": "object"
+                    },
+                    "repositoryUrl": {
+                      "type": "string",
+                      "defaultValue": "https://github.com/Galvnyz/Az-Stamper"
+                    },
+                    "branch": {
+                      "type": "string",
+                      "defaultValue": "main"
+                    },
+                    "appLocation": {
+                      "type": "string",
+                      "defaultValue": "swa"
+                    }
+                  },
+                  "resources": [
+                    {
+                      "type": "Microsoft.Web/staticSites",
+                      "apiVersion": "2022-09-01",
+                      "name": "[parameters('name')]",
+                      "location": "[parameters('location')]",
+                      "tags": "[parameters('tags')]",
+                      "sku": {
+                        "name": "Free",
+                        "tier": "Free"
+                      },
+                      "properties": {
+                        "repositoryUrl": "[parameters('repositoryUrl')]",
+                        "branch": "[parameters('branch')]",
+                        "buildProperties": {
+                          "appLocation": "[parameters('appLocation')]",
+                          "outputLocation": "",
+                          "skipGithubActionWorkflowGeneration": true
+                        }
+                      }
+                    }
+                  ],
+                  "outputs": {
+                    "staticWebAppName": {
+                      "type": "string",
+                      "value": "[parameters('name')]"
+                    },
+                    "defaultHostname": {
+                      "type": "string",
+                      "value": "[reference(resourceId('Microsoft.Web/staticSites', parameters('name')), '2022-09-01').defaultHostname]"
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "functionAppName": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Resources/deployments', 'functionApp'), '2025-04-01').outputs.functionAppName.value]"
+            },
+            "functionAppId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Resources/deployments', 'functionApp'), '2025-04-01').outputs.functionAppId.value]"
+            },
+            "principalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Resources/deployments', 'functionApp'), '2025-04-01').outputs.principalId.value]"
+            },
+            "swaHostname": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Resources/deployments', 'swa'), '2025-04-01').outputs.defaultHostname.value]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "eventGrid",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "systemTopicName": {
+            "value": "[parameters('systemTopicName')]"
+          },
+          "eventSubscriptionName": {
+            "value": "[parameters('eventSubscriptionName')]"
+          },
+          "functionAppId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'hub'), '2025-04-01').outputs.functionAppId.value]"
+          },
+          "subscriptionId": {
+            "value": "[subscription().subscriptionId]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "2096511882392230420"
+            }
+          },
+          "parameters": {
+            "systemTopicName": {
+              "type": "string"
+            },
+            "eventSubscriptionName": {
+              "type": "string"
+            },
+            "functionAppId": {
+              "type": "string"
+            },
+            "subscriptionId": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "global"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.EventGrid/systemTopics",
+              "apiVersion": "2022-06-15",
+              "name": "[parameters('systemTopicName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "source": "[format('/subscriptions/{0}', parameters('subscriptionId'))]",
+                "topicType": "Microsoft.Resources.Subscriptions"
+              }
+            },
+            {
+              "type": "Microsoft.EventGrid/systemTopics/eventSubscriptions",
+              "apiVersion": "2022-06-15",
+              "name": "[format('{0}/{1}', parameters('systemTopicName'), parameters('eventSubscriptionName'))]",
+              "properties": {
+                "destination": {
+                  "endpointType": "AzureFunction",
+                  "properties": {
+                    "resourceId": "[format('{0}/functions/ResourceStamper', parameters('functionAppId'))]"
+                  }
+                },
+                "filter": {
+                  "includedEventTypes": [
+                    "Microsoft.Resources.ResourceWriteSuccess"
+                  ],
+                  "advancedFilters": [
+                    {
+                      "operatorType": "StringNotContains",
+                      "key": "data.operationName",
+                      "values": [
+                        "Microsoft.Resources/deployments",
+                        "Microsoft.Resources/tags"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.EventGrid/systemTopics', parameters('systemTopicName'))]"
+              ]
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'hub')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "functionAppName": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'hub'), '2025-04-01').outputs.functionAppName.value]"
+    },
+    "functionAppId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'hub'), '2025-04-01').outputs.functionAppId.value]"
+    },
+    "principalId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'hub'), '2025-04-01').outputs.principalId.value]"
+    },
+    "swaHostname": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'hub'), '2025-04-01').outputs.swaHostname.value]"
+    }
+  }
+}
