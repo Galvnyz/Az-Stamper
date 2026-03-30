@@ -23,12 +23,6 @@ param environment string = 'prod'
 @description('URL of the function app deployment package (pre-filled with latest release).')
 param packageUrl string = 'https://github.com/Galvnyz/Az-Stamper/releases/latest/download/az-stamper.zip'
 
-@description('Name for the Event Grid system topic.')
-param systemTopicName string = 'evgt-az-stamper'
-
-@description('Name for the Event Grid event subscription.')
-param eventSubscriptionName string = 'evgs-az-stamper'
-
 // 1. Create resource group
 resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   name: resourceGroupName
@@ -54,19 +48,7 @@ module hub 'main.bicep' = {
   }
 }
 
-// 3. Deploy Event Grid system topic + event subscription into the resource group
-module eventGrid 'modules/eventGrid.bicep' = {
-  name: 'eventGrid'
-  scope: rg
-  params: {
-    systemTopicName: systemTopicName
-    eventSubscriptionName: eventSubscriptionName
-    functionAppId: hub.outputs.functionAppId
-    subscriptionId: subscription().subscriptionId
-  }
-}
-
-// 4. Subscription-scoped RBAC — Reader
+// 3. Subscription-scoped RBAC — Reader
 resource readerRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(subscription().id, functionAppName, 'acdd72a7-3385-48ef-bd42-f606fba81ae7')
   properties: {
@@ -76,7 +58,7 @@ resource readerRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
-// 5. Subscription-scoped RBAC — Tag Contributor
+// 4. Subscription-scoped RBAC — Tag Contributor
 resource tagContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(subscription().id, functionAppName, '4a9ae827-6dc8-4573-8ac7-8239d42aa03f')
   properties: {

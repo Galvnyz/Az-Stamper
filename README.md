@@ -143,30 +143,41 @@ When a user creates a resource, their UPN (e.g., `alice@contoso.com`) is embedde
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fdeploy.json)
 
-This deploys the complete Az-Stamper solution to your Azure subscription:
+This deploys the Az-Stamper hub infrastructure to your Azure subscription:
 - Resource group, storage account, function app, App Insights, Log Analytics
-- Event Grid system topic and event subscription
 - Subscription-scoped RBAC (Reader + Tag Contributor)
 - Function code (via WEBSITE_RUN_FROM_PACKAGE)
+
+After hub deployment, you'll enroll your subscription to start tagging (Step 2 below).
 
 **Prerequisites:**
 - An Azure subscription with **Owner** or **Contributor + User Access Administrator** role
 - The `Microsoft.EventGrid` resource provider registered on the subscription (`az provider register --namespace Microsoft.EventGrid`)
 
-#### What happens when you click the button
+#### Step 1: Deploy the hub
 
-1. The Azure portal opens a **Custom deployment** form. Fill in the required fields:
+1. Click the **Deploy to Azure** button above
+2. The Azure portal opens a **Custom deployment** form. Fill in the required fields:
    - **Region** — pick the Azure region closest to you (e.g., East US 2, West Europe)
    - **Resource Group Name** — a name for the new resource group (default: `rg-az-stamper`)
    - **Storage Account Name** — must be **globally unique**, 3-24 lowercase letters and numbers only (e.g., `stazstamper42`)
    - **Function App Name** — name for the function app (default: `func-az-stamper`)
    - **App Insights Name** — name for Application Insights (default: `ai-az-stamper`)
-2. Click **Review + create**, then **Create**
-3. Deployment takes **3-5 minutes**. You can watch progress on the deployment page.
+3. Click **Review + create**, then **Create**
+4. Deployment takes **3-5 minutes**. You can watch progress on the deployment page.
+5. After deployment, find your outputs: go to your resource group → **Deployments** → **hub** → **Outputs**. Save `functionAppId` and `principalId` — you'll need them for Step 2.
 
-#### Verify it works
+#### Step 2: Enroll your subscription
 
-After deployment completes, create a test resource and check for tags:
+The hub deploys the function app and RBAC, but Event Grid needs to be set up separately (the function needs time to start before Event Grid can validate its endpoint).
+
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json)
+
+Fill in the `functionAppResourceId` and `functionAppPrincipalId` from Step 1's outputs, and provide a resource group name for the Event Grid resources (your hub RG works fine). This creates the Event Grid system topic and event subscription that routes resource events to your function.
+
+#### Step 3: Verify it works
+
+After both deployments complete, create a test resource and check for tags:
 
 ```bash
 # Open Azure Cloud Shell (the terminal icon >_ in the portal header) and run:
@@ -184,13 +195,6 @@ az tag list --resource-id <resource-id-from-create-output>
 ```
 
 You should see all five tags: `Creator`, `CreatedOn`, `LastModifiedBy`, `LastModifiedOn`, `StampedBy`.
-
-#### Find your deployment outputs
-
-You'll need these values to enroll additional subscriptions. In the Azure portal:
-1. Go to your resource group (e.g., `rg-az-stamper`)
-2. Click **Deployments** in the left menu → click **hub**
-3. Click **Outputs** — save `functionAppId` and `principalId`
 
 #### Optional: set SelfPrincipalId
 
