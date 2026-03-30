@@ -77,8 +77,7 @@ jobs:
             --location ${{ vars.LOCATION }} \
             --template-file infra/main.sub.bicep \
             --parameters \
-              functionAppId='${{ steps.infra.outputs.functionAppId }}' \
-              functionAppPrincipalId='${{ steps.infra.outputs.principalId }}' \
+              functionAppName='${{ vars.FUNCTION_APP_NAME }}' \
               resourceGroupName='${{ vars.RESOURCE_GROUP }}'
 
       - name: Deploy function code

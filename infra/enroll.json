@@ -5,20 +5,22 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "6186465732546442900"
+      "templateHash": "13680915525753939255"
     }
   },
   "parameters": {
-    "functionAppResourceId": {
+    "resourceGroupName": {
       "type": "string",
+      "defaultValue": "rg-az-stamper",
       "metadata": {
-        "description": "Resource ID of the Az-Stamper function app (e.g., /subscriptions/.../Microsoft.Web/sites/func-az-stamper)"
+        "description": "Name of the resource group containing the Az-Stamper hub."
       }
     },
-    "functionAppPrincipalId": {
+    "functionAppName": {
       "type": "string",
+      "defaultValue": "func-az-stamper",
       "metadata": {
-        "description": "Principal ID (object ID) of the Az-Stamper function app managed identity"
+        "description": "Name of the Az-Stamper function app."
       }
     },
     "systemTopicName": {
@@ -34,47 +36,14 @@
       "metadata": {
         "description": "Name for the Event Grid event subscription"
       }
-    },
-    "eventGridResourceGroupName": {
-      "type": "string",
-      "metadata": {
-        "description": "Resource group name in the target subscription for the Event Grid system topic"
-      }
-    },
-    "location": {
-      "type": "string",
-      "defaultValue": "global",
-      "metadata": {
-        "description": "Location for the Event Grid resources"
-      }
     }
   },
   "resources": [
     {
-      "type": "Microsoft.Authorization/roleAssignments",
-      "apiVersion": "2022-04-01",
-      "name": "[guid(subscription().id, parameters('functionAppPrincipalId'), 'acdd72a7-3385-48ef-bd42-f606fba81ae7')]",
-      "properties": {
-        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7')]",
-        "principalId": "[parameters('functionAppPrincipalId')]",
-        "principalType": "ServicePrincipal"
-      }
-    },
-    {
-      "type": "Microsoft.Authorization/roleAssignments",
-      "apiVersion": "2022-04-01",
-      "name": "[guid(subscription().id, parameters('functionAppPrincipalId'), '4a9ae827-6dc8-4573-8ac7-8239d42aa03f')]",
-      "properties": {
-        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4a9ae827-6dc8-4573-8ac7-8239d42aa03f')]",
-        "principalId": "[parameters('functionAppPrincipalId')]",
-        "principalType": "ServicePrincipal"
-      }
-    },
-    {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
       "name": "az-stamper-enrollment",
-      "resourceGroup": "[parameters('eventGridResourceGroupName')]",
+      "resourceGroup": "[parameters('resourceGroupName')]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
@@ -88,13 +57,10 @@
             "value": "[parameters('eventSubscriptionName')]"
           },
           "functionAppId": {
-            "value": "[parameters('functionAppResourceId')]"
+            "value": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Web/sites', parameters('functionAppName'))]"
           },
           "subscriptionId": {
             "value": "[subscription().subscriptionId]"
-          },
-          "location": {
-            "value": "[parameters('location')]"
           }
         },
         "template": {
@@ -104,7 +70,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "4216518391563330874"
+              "templateHash": "2096511882392230420"
             }
           },
           "parameters": {
@@ -156,7 +122,8 @@
                       "operatorType": "StringNotContains",
                       "key": "data.operationName",
                       "values": [
-                        "Microsoft.Resources/deployments"
+                        "Microsoft.Resources/deployments",
+                        "Microsoft.Resources/tags"
                       ]
                     }
                   ]
@@ -165,6 +132,64 @@
               "dependsOn": [
                 "[resourceId('Microsoft.EventGrid/systemTopics', parameters('systemTopicName'))]"
               ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "enrollmentRbac",
+      "location": "[deployment().location]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "principalId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Web/sites', parameters('functionAppName')), '2023-12-01', 'full').identity.principalId]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "252838764718187273"
+            }
+          },
+          "parameters": {
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID of the function app managed identity."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(subscription().id, parameters('principalId'), 'acdd72a7-3385-48ef-bd42-f606fba81ae7')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7')]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(subscription().id, parameters('principalId'), '4a9ae827-6dc8-4573-8ac7-8239d42aa03f')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4a9ae827-6dc8-4573-8ac7-8239d42aa03f')]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "ServicePrincipal"
+              }
             }
           ]
         }

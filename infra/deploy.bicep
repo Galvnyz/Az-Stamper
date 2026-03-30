@@ -48,23 +48,12 @@ module hub 'main.bicep' = {
   }
 }
 
-// 3. Subscription-scoped RBAC — Reader
-resource readerRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(subscription().id, functionAppName, 'acdd72a7-3385-48ef-bd42-f606fba81ae7')
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7')
+// 3. Subscription-scoped RBAC — Reader + Tag Contributor
+//    Uses principalId in guid seed so delete-RG-and-redeploy works
+module subscriptionRbac 'modules/subscriptionRbac.bicep' = {
+  name: 'subscriptionRbac'
+  params: {
     principalId: hub.outputs.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// 4. Subscription-scoped RBAC — Tag Contributor
-resource tagContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(subscription().id, functionAppName, '4a9ae827-6dc8-4573-8ac7-8239d42aa03f')
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4a9ae827-6dc8-4573-8ac7-8239d42aa03f')
-    principalId: hub.outputs.principalId
-    principalType: 'ServicePrincipal'
   }
 }
 

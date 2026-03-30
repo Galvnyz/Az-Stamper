@@ -1,11 +1,19 @@
 targetScope = 'subscription'
 
+@description('Name of the resource group containing the Az-Stamper hub.')
+param resourceGroupName string = 'rg-az-stamper'
+
+@description('Name of the Az-Stamper function app.')
+param functionAppName string = 'func-az-stamper'
+
 param systemTopicName string = 'evgt-az-stamper'
 param eventSubscriptionName string = 'evgs-az-stamper'
-param functionAppId string
-param functionAppPrincipalId string
-param resourceGroupName string
-param location string = 'global'
+
+// Look up the existing function app to get its resource ID and managed identity
+resource funcApp 'Microsoft.Web/sites@2023-12-01' existing = {
+  name: functionAppName
+  scope: resourceGroup(resourceGroupName)
+}
 
 // Event Grid module deploys into the resource group (system topics are RG-scoped)
 module eventGrid 'modules/eventGrid.bicep' = {
@@ -14,27 +22,15 @@ module eventGrid 'modules/eventGrid.bicep' = {
   params: {
     systemTopicName: systemTopicName
     eventSubscriptionName: eventSubscriptionName
-    functionAppId: functionAppId
+    functionAppId: funcApp.id
     subscriptionId: subscription().subscriptionId
-    location: location
   }
 }
 
-// Subscription-scoped RBAC for the function's managed identity
-resource readerRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(subscription().id, functionAppPrincipalId, 'acdd72a7-3385-48ef-bd42-f606fba81ae7')
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7')
-    principalId: functionAppPrincipalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-resource tagContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(subscription().id, functionAppPrincipalId, '4a9ae827-6dc8-4573-8ac7-8239d42aa03f')
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4a9ae827-6dc8-4573-8ac7-8239d42aa03f')
-    principalId: functionAppPrincipalId
-    principalType: 'ServicePrincipal'
+// Subscription-scoped RBAC (idempotent — same guids as deploy.bicep if already assigned)
+module subscriptionRbac 'modules/subscriptionRbac.bicep' = {
+  name: 'enrollmentRbac'
+  params: {
+    principalId: funcApp.identity.principalId
   }
 }

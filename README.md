@@ -165,7 +165,7 @@ After hub deployment, you'll enroll your subscription to start tagging (Step 2 b
    - **App Insights Name** — name for Application Insights (default: `ai-az-stamper`)
 3. Click **Review + create**, then **Create**
 4. Deployment takes **3-5 minutes**. You can watch progress on the deployment page.
-5. After deployment, find your outputs: go to your resource group → **Deployments** → **hub** → **Outputs**. Save `functionAppId` and `principalId` — you'll need them for Step 2.
+5. Wait for deployment to complete (3-5 minutes).
 
 #### Step 2: Enroll your subscription
 
@@ -173,7 +173,7 @@ The hub deploys the function app and RBAC, but Event Grid needs to be set up sep
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json)
 
-Fill in the `functionAppResourceId` and `functionAppPrincipalId` from Step 1's outputs, and provide a resource group name for the Event Grid resources (your hub RG works fine). This creates the Event Grid system topic and event subscription that routes resource events to your function.
+The enrollment template automatically looks up your function app — just confirm the **Resource Group Name** and **Function App Name** match what you used in Step 1 (defaults work if you didn't change them). This creates the Event Grid system topic and event subscription that routes resource events to your function.
 
 #### Step 3: Verify it works
 
@@ -319,8 +319,7 @@ az deployment sub create \
   --location eastus \
   --template-file infra/main.sub.bicep \
   --parameters \
-    functionAppId="<functionAppId from Step 4>" \
-    functionAppPrincipalId="<principalId from Step 4>" \
+    functionAppName="func-az-stamper-dev" \
     resourceGroupName="rg-az-stamper-dev"
 ```
 
@@ -331,7 +330,7 @@ When a Service Principal or Managed Identity creates a resource, the event conta
 This step requires **Entra ID Global Administrator** or **Privileged Role Administrator** permissions:
 
 ```powershell
-$miPrincipalId = "<principalId from Step 4>"
+$miPrincipalId = (az functionapp identity show --name func-az-stamper-dev --resource-group rg-az-stamper-dev --query principalId -o tsv)
 $graphSp = Get-AzADServicePrincipal -ApplicationId "00000003-0000-0000-c000-000000000000"
 $role = $graphSp.AppRole | Where-Object { $_.Value -eq "Directory.Read.All" }
 New-AzADServicePrincipalAppRoleAssignment `
@@ -395,13 +394,14 @@ Subscriptions not explicitly configured receive the global default tags automati
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json)
 
-**Required parameters:**
+**Parameters:**
 
-| Parameter | Description |
-|-----------|-------------|
-| `functionAppResourceId` | Full resource ID of the Az-Stamper function app (find in: Azure portal → your RG → Deployments → hub → Outputs → `functionAppId`) |
-| `functionAppPrincipalId` | Managed identity principal ID (find in: Azure portal → your RG → Deployments → hub → Outputs → `principalId`) |
-| `eventGridResourceGroupName` | A resource group in the target subscription for Event Grid resources |
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `resourceGroupName` | `rg-az-stamper` | Resource group containing the Az-Stamper hub |
+| `functionAppName` | `func-az-stamper` | Name of the Az-Stamper function app |
+
+The template automatically looks up the function app's resource ID and managed identity — no need to copy IDs manually.
 
 ### Unenroll a Subscription
 
