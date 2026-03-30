@@ -9,8 +9,6 @@ param environment string = 'dev'
 param swaName string = '${functionAppName}-config'
 param workbookName string = 'Az-Stamper Activity Dashboard'
 
-@description('URL of the function app deployment package. Leave empty for CI/CD zip-push deployment.')
-param packageUrl string = ''
 param tags object = {
   Project: 'Az-Stamper'
   ManagedBy: 'Bicep'
@@ -49,7 +47,6 @@ module functionApp 'modules/functionApp.bicep' = {
     storageBlobEndpoint: storage.outputs.primaryBlobEndpoint
     deploymentContainerName: storage.outputs.deploymentContainerName
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
-    packageUrl: packageUrl
   }
 }
 

@@ -5,8 +5,6 @@ param storageAccountName string
 param storageBlobEndpoint string
 param deploymentContainerName string
 param appInsightsConnectionString string
-@description('URL of the function app deployment package. When set, enables run-from-package.')
-param packageUrl string = ''
 // StamperConfig uses __ delimited app settings for IOptions<T> binding
 
 resource flexPlan 'Microsoft.Web/serverfarms@2023-12-01' = {
@@ -152,12 +150,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
           name: 'StamperConfig__ConfigBlobUri'
           value: 'https://${storageAccountName}.blob.${environment().suffixes.storage}/config/stamper.json'
         }
-      ], packageUrl != '' ? [
-        {
-          name: 'WEBSITE_RUN_FROM_PACKAGE'
-          value: packageUrl
-        }
-      ] : [])
+      ])
     }
   }
 }
