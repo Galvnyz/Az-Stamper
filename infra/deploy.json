@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "3255288001706194044"
+      "templateHash": "9659921556798901408"
     }
   },
   "parameters": {
@@ -755,7 +755,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "17384765458679574485"
+              "templateHash": "11068800868252693958"
             }
           },
           "parameters": {
@@ -819,7 +819,7 @@
                 "retentionInterval": "PT1H",
                 "timeout": "PT15M",
                 "cleanupPreference": "OnSuccess",
-                "scriptContent": "      echo \"Waiting 60s for RBAC propagation...\"\n      sleep 60\n\n      echo \"Downloading package from $PACKAGE_URL...\"\n      curl -sL -o /tmp/deploy.zip \"$PACKAGE_URL\"\n      size=$(stat -c%s /tmp/deploy.zip 2>/dev/null || echo \"unknown\")\n      echo \"Downloaded $size bytes\"\n\n      echo \"Deploying to $FUNCTION_APP_NAME in $RESOURCE_GROUP_NAME...\"\n      az functionapp deployment source config-zip \\\n        --name \"$FUNCTION_APP_NAME\" \\\n        --resource-group \"$RESOURCE_GROUP_NAME\" \\\n        --src /tmp/deploy.zip\n\n      echo \"Waiting for function to register...\"\n      for i in $(seq 1 30); do\n        status=$(curl -s -o /dev/null -w \"%{http_code}\" \"https://${FUNCTION_APP_NAME}.azurewebsites.net/\" --max-time 10 2>/dev/null)\n        if [ \"$status\" = \"200\" ] || [ \"$status\" = \"401\" ] || [ \"$status\" = \"404\" ]; then\n          echo \"Function host is responding (HTTP $status, attempt $i)\"\n          sleep 30\n          echo \"Deploy complete\"\n          exit 0\n        fi\n        echo \"Attempt $i/30: HTTP $status, waiting 20s...\"\n        sleep 20\n      done\n      echo \"WARNING: Function host not yet responding, but deploy command succeeded\"\n      exit 0\n    ",
+                "scriptContent": "      echo \"Waiting 60s for RBAC propagation...\"\n      sleep 60\n\n      echo \"Downloading package from $PACKAGE_URL...\"\n      curl -sL -o /tmp/deploy.zip \"$PACKAGE_URL\"\n      size=$(stat -c%s /tmp/deploy.zip 2>/dev/null || echo \"unknown\")\n      echo \"Downloaded $size bytes\"\n\n      echo \"Deploying to $FUNCTION_APP_NAME via Kudu zip deploy...\"\n      token=$(az account get-access-token --resource \"$MGMT_ENDPOINT\" --query accessToken -o tsv)\n      response=$(curl -s -w \"\\n%{http_code}\" -X POST \\\n        \"https://${FUNCTION_APP_NAME}.scm.azurewebsites.net/api/zipdeploy\" \\\n        -H \"Authorization: Bearer $token\" \\\n        -H \"Content-Type: application/zip\" \\\n        --data-binary @/tmp/deploy.zip \\\n        --max-time 300)\n      http_code=$(echo \"$response\" | tail -1)\n      echo \"Kudu zip deploy returned HTTP $http_code\"\n\n      if [ \"$http_code\" != \"200\" ] && [ \"$http_code\" != \"202\" ]; then\n        echo \"Kudu deploy failed, falling back to az functionapp deploy...\"\n        az functionapp deploy \\\n          --name \"$FUNCTION_APP_NAME\" \\\n          --resource-group \"$RESOURCE_GROUP_NAME\" \\\n          --src-path /tmp/deploy.zip \\\n          --type zip\n      fi\n\n      echo \"Waiting for ResourceStamper function to register...\"\n      for i in $(seq 1 40); do\n        funcs=$(az functionapp function list \\\n          --name \"$FUNCTION_APP_NAME\" \\\n          --resource-group \"$RESOURCE_GROUP_NAME\" \\\n          --query \"[?name=='ResourceStamper'].name\" -o tsv 2>/dev/null)\n        if [ \"$funcs\" = \"ResourceStamper\" ]; then\n          echo \"ResourceStamper is ready (attempt $i)\"\n          exit 0\n        fi\n        echo \"Attempt $i/40: not ready, waiting 20s...\"\n        sleep 20\n      done\n      echo \"WARNING: ResourceStamper not detected within timeout\"\n      exit 0\n    ",
                 "environmentVariables": [
                   {
                     "name": "FUNCTION_APP_NAME",
@@ -832,6 +832,10 @@
                   {
                     "name": "PACKAGE_URL",
                     "value": "[parameters('packageUrl')]"
+                  },
+                  {
+                    "name": "MGMT_ENDPOINT",
+                    "value": "[environment().resourceManager]"
                   }
                 ]
               },

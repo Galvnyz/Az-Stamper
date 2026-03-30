@@ -15,7 +15,7 @@ resource scriptIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-0
   location: location
 }
 
-// Contributor on the RG so az functionapp deployment works
+// Contributor on the RG so deployment and function listing works
 resource contributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(resourceGroup().id, scriptIdentity.id, 'b24988ac-6180-42a0-ab88-20f7382dd24c')
   properties: {
@@ -25,7 +25,7 @@ resource contributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = 
   }
 }
 
-// Download the zip and deploy it to the function app
+// Download the zip and deploy via Kudu zip deploy API
 resource deployPackage 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   name: '${functionAppName}-package-deploy'
   location: location
@@ -51,31 +51,47 @@ resource deployPackage 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       size=$(stat -c%s /tmp/deploy.zip 2>/dev/null || echo "unknown")
       echo "Downloaded $size bytes"
 
-      echo "Deploying to $FUNCTION_APP_NAME in $RESOURCE_GROUP_NAME..."
-      az functionapp deployment source config-zip \
-        --name "$FUNCTION_APP_NAME" \
-        --resource-group "$RESOURCE_GROUP_NAME" \
-        --src /tmp/deploy.zip
+      echo "Deploying to $FUNCTION_APP_NAME via Kudu zip deploy..."
+      token=$(az account get-access-token --resource "$MGMT_ENDPOINT" --query accessToken -o tsv)
+      response=$(curl -s -w "\n%{http_code}" -X POST \
+        "https://${FUNCTION_APP_NAME}.scm.azurewebsites.net/api/zipdeploy" \
+        -H "Authorization: Bearer $token" \
+        -H "Content-Type: application/zip" \
+        --data-binary @/tmp/deploy.zip \
+        --max-time 300)
+      http_code=$(echo "$response" | tail -1)
+      echo "Kudu zip deploy returned HTTP $http_code"
 
-      echo "Waiting for function to register..."
-      for i in $(seq 1 30); do
-        status=$(curl -s -o /dev/null -w "%{http_code}" "https://${FUNCTION_APP_NAME}.azurewebsites.net/" --max-time 10 2>/dev/null)
-        if [ "$status" = "200" ] || [ "$status" = "401" ] || [ "$status" = "404" ]; then
-          echo "Function host is responding (HTTP $status, attempt $i)"
-          sleep 30
-          echo "Deploy complete"
+      if [ "$http_code" != "200" ] && [ "$http_code" != "202" ]; then
+        echo "Kudu deploy failed, falling back to az functionapp deploy..."
+        az functionapp deploy \
+          --name "$FUNCTION_APP_NAME" \
+          --resource-group "$RESOURCE_GROUP_NAME" \
+          --src-path /tmp/deploy.zip \
+          --type zip
+      fi
+
+      echo "Waiting for ResourceStamper function to register..."
+      for i in $(seq 1 40); do
+        funcs=$(az functionapp function list \
+          --name "$FUNCTION_APP_NAME" \
+          --resource-group "$RESOURCE_GROUP_NAME" \
+          --query "[?name=='ResourceStamper'].name" -o tsv 2>/dev/null)
+        if [ "$funcs" = "ResourceStamper" ]; then
+          echo "ResourceStamper is ready (attempt $i)"
           exit 0
         fi
-        echo "Attempt $i/30: HTTP $status, waiting 20s..."
+        echo "Attempt $i/40: not ready, waiting 20s..."
         sleep 20
       done
-      echo "WARNING: Function host not yet responding, but deploy command succeeded"
+      echo "WARNING: ResourceStamper not detected within timeout"
       exit 0
     '''
     environmentVariables: [
       { name: 'FUNCTION_APP_NAME', value: functionAppName }
       { name: 'RESOURCE_GROUP_NAME', value: resourceGroupName }
       { name: 'PACKAGE_URL', value: packageUrl }
+      { name: 'MGMT_ENDPOINT', value: environment().resourceManager }
     ]
   }
 }
