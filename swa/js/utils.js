@@ -43,8 +43,12 @@ async function azureFetch(url, token, options = {}) {
     throw new Error(`Azure API error ${response.status}: ${text}`);
   }
 
-  if (response.status === 204) return null;
-  return response.json();
+  if (response.status === 204 || response.status === 202) return null;
+  var contentLength = response.headers.get('content-length');
+  if (contentLength === '0') return null;
+  var text = await response.text();
+  if (!text) return null;
+  return JSON.parse(text);
 }
 
 function formatDate(dateStr) {
