@@ -24,7 +24,6 @@ module readinessCheck 'modules/functionReadinessCheck.bicep' = {
   scope: resourceGroup(resourceGroupName)
   params: {
     functionAppName: functionAppName
-    resourceGroupName: resourceGroupName
   }
 }
 
