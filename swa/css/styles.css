@@ -979,6 +979,13 @@ tbody tr:hover {
 .gap-16       { gap: 16px; }
 
 /* ------------------------------------------------------------
+   Activity Row Expand
+   ------------------------------------------------------------ */
+.activity-row-expanded {
+  background: var(--bg-hover) !important;
+}
+
+/* ------------------------------------------------------------
    Inline Editor (expands below card in grid)
    ------------------------------------------------------------ */
 .inline-editor {
