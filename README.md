@@ -174,7 +174,9 @@ Deployment is two steps: **deploy the hub**, then **enroll each subscription** y
 
 #### Step 1: Deploy the hub
 
-1. Click the **Deploy to Azure** button above
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fdeploy.json)
+
+1. Click the **Deploy to Azure** button
 2. The Azure portal opens a **Custom deployment** form. Fill in the required fields:
    - **Region** — pick the Azure region closest to you (e.g., East US 2, West Europe)
    - **Resource Group Name** — a name for the new resource group (default: `rg-az-stamper`)
