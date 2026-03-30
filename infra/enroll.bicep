@@ -19,7 +19,7 @@ resource funcApp 'Microsoft.Web/sites@2023-12-01' existing = {
 }
 
 // Event Grid — function code is already deployed by the hub's packageDeploy step
-module eventGrid 'modules/enrollment.bicep' = {
+module eventGrid 'modules/eventGrid.bicep' = {
   name: 'az-stamper-enrollment'
   scope: resourceGroup(resourceGroupName)
   params: {

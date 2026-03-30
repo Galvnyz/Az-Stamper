@@ -338,7 +338,7 @@ This is a **subscription-scoped** deployment (not resource group-scoped), becaus
 ```bash
 az deployment sub create \
   --location eastus \
-  --template-file infra/main.sub.bicep \
+  --template-file infra/enroll.bicep \
   --parameters \
     functionAppName="func-az-stamper-dev" \
     resourceGroupName="rg-az-stamper-dev"
@@ -532,7 +532,7 @@ tests/
   AzStamper.Core.Tests/    Unit tests (xUnit + Moq, mocks all Azure SDK calls)
 infra/
   main.bicep               Resource group deployment (storage, function, monitoring)
-  main.sub.bicep           Subscription deployment (Event Grid, RBAC)
+  enroll.bicep             Subscription enrollment (Event Grid, RBAC)
   modules/                 Individual Bicep modules
   parameters/              Environment-specific parameter files
 ```

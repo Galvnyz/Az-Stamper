@@ -75,7 +75,7 @@ jobs:
         run: |
           az deployment sub create \
             --location ${{ vars.LOCATION }} \
-            --template-file infra/main.sub.bicep \
+            --template-file infra/enroll.bicep \
             --parameters \
               functionAppName='${{ vars.FUNCTION_APP_NAME }}' \
               resourceGroupName='${{ vars.RESOURCE_GROUP }}'
