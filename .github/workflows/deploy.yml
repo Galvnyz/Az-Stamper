@@ -41,6 +41,13 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Ensure resource group exists
+        run: |
+          az group create \
+            --name ${{ vars.RESOURCE_GROUP }} \
+            --location ${{ vars.LOCATION }} \
+            --tags Project=Az-Stamper ManagedBy=Bicep Environment=${{ inputs.environment }}
+
       - name: Deploy infrastructure
         id: infra
         run: |
