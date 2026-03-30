@@ -1,401 +1,333 @@
-// Subscriptions Tab -- card list, add/remove/toggle per subscription
+// Subscriptions Tab -- enrollment-centric: reads from Event Grid, not stamper.json config
 
 async function loadSubscriptionsTab() {
-  const panel = document.getElementById('panel-subscriptions');
+  var panel = document.getElementById('panel-subscriptions');
   panel.textContent = '';
 
-  const loading = document.createElement('div');
+  var loading = document.createElement('div');
   loading.className = 'loading-state';
-  const spinner = document.createElement('div');
+  var spinner = document.createElement('div');
   spinner.className = 'spinner';
-  const loadingText = document.createElement('span');
-  loadingText.textContent = 'Loading subscriptions…';
+  var loadingText = document.createElement('span');
+  loadingText.textContent = 'Discovering enrolled subscriptions\u2026';
   loading.appendChild(spinner);
   loading.appendChild(loadingText);
   panel.appendChild(loading);
 
-  await loadConfig();
-  renderSubscriptionsTab();
+  var enrolled = await discoverEnrollment();
+  renderSubscriptionsTab(enrolled);
 }
 
-function renderSubscriptionsTab() {
-  const panel = document.getElementById('panel-subscriptions');
+function renderSubscriptionsTab(enrolled) {
+  var panel = document.getElementById('panel-subscriptions');
   panel.textContent = '';
 
-  const config = getConfig();
-  const subs = config.subscriptions || {};
-  const subIds = Object.keys(subs);
-
   // Controls bar
-  const bar = document.createElement('div');
+  var bar = document.createElement('div');
   bar.className = 'controls-bar';
 
-  const titleEl = document.createElement('span');
+  var titleEl = document.createElement('span');
   titleEl.className = 'controls-bar-title';
-  titleEl.textContent = 'Subscriptions';
+  titleEl.textContent = 'Enrolled Subscriptions';
   bar.appendChild(titleEl);
 
-  const verifyBtn = document.createElement('button');
-  verifyBtn.className = 'btn btn-secondary';
-  verifyBtn.textContent = 'Verify Enrollment';
-  verifyBtn.addEventListener('click', verifyAllEnrollments);
-  bar.appendChild(verifyBtn);
-
-  const addBtn = document.createElement('button');
-  addBtn.className = 'btn btn-primary';
-  addBtn.textContent = '+ Add Subscription';
-  addBtn.addEventListener('click', openAddSubscriptionModal);
-  bar.appendChild(addBtn);
+  var refreshBtn = document.createElement('button');
+  refreshBtn.className = 'btn btn-secondary';
+  refreshBtn.textContent = 'Refresh';
+  refreshBtn.addEventListener('click', async function() {
+    invalidateEnrollmentCache();
+    var fresh = await refreshEnrollment();
+    renderSubscriptionsTab(fresh);
+  });
+  bar.appendChild(refreshBtn);
   panel.appendChild(bar);
 
+  // Global defaults info banner
+  var banner = document.createElement('div');
+  banner.className = 'info-banner';
+
+  var bannerIcon = document.createElement('span');
+  bannerIcon.textContent = '\u2699';
+  bannerIcon.style.cssText = 'font-size:1.25rem;margin-right:8px;vertical-align:middle;';
+
+  var bannerTitle = document.createElement('strong');
+  bannerTitle.textContent = 'Global Default Tags';
+
+  var bannerDesc = document.createElement('span');
+  bannerDesc.style.cssText = 'color:var(--text-secondary);font-size:0.875rem;margin-left:8px;';
+  bannerDesc.textContent = 'Applied to all enrolled subscriptions: CreatedBy, CreatedDate, CreatedByObjectId, Environment, ManagedBy.';
+
+  var bannerLink = document.createElement('a');
+  bannerLink.href = '#';
+  bannerLink.style.cssText = 'margin-left:12px;font-size:0.875rem;';
+  bannerLink.textContent = 'View in Tag Rules \u2192';
+  bannerLink.addEventListener('click', function(e) {
+    e.preventDefault();
+    navigateToRules(null);
+  });
+
+  banner.appendChild(bannerIcon);
+  banner.appendChild(bannerTitle);
+  banner.appendChild(bannerDesc);
+  banner.appendChild(bannerLink);
+  panel.appendChild(banner);
+
   // Empty state
-  if (subIds.length === 0) {
-    const empty = document.createElement('div');
+  if (!enrolled || enrolled.length === 0) {
+    var empty = document.createElement('div');
     empty.className = 'empty-state';
 
-    const icon = document.createElement('div');
+    var icon = document.createElement('div');
     icon.className = 'empty-state-icon';
-    icon.textContent = '🔒';
+    icon.textContent = '\uD83D\uDD0D';
 
-    const emptyTitle = document.createElement('div');
+    var emptyTitle = document.createElement('div');
     emptyTitle.className = 'empty-state-title';
-    emptyTitle.textContent = 'No subscriptions configured';
+    emptyTitle.textContent = 'No enrolled subscriptions found';
 
-    const emptyDesc = document.createElement('div');
+    var emptyDesc = document.createElement('div');
     emptyDesc.className = 'empty-state-desc';
-    emptyDesc.textContent = 'Add a subscription to start managing tag rules for your Azure environments.';
+    emptyDesc.textContent = 'Deploy enroll.bicep to an Azure subscription to begin automatic resource tagging.';
 
     empty.appendChild(icon);
     empty.appendChild(emptyTitle);
     empty.appendChild(emptyDesc);
     panel.appendChild(empty);
-  } else {
-    // Card grid
-    const grid = document.createElement('div');
-    grid.className = 'card-grid';
-
-    subIds.forEach(function(subId) {
-      const sub = subs[subId];
-      const card = buildSubscriptionCard(subId, sub);
-      grid.appendChild(card);
-    });
-
-    panel.appendChild(grid);
+    return;
   }
 
-  // Discovered (enrolled but not configured) section — populated by verifyAllEnrollments
-  // Must be created even when config is empty so discovery has a render target
-  const discoveredSection = document.createElement('div');
-  discoveredSection.id = 'discovered-subs-section';
-  panel.appendChild(discoveredSection);
+  // Card grid
+  var grid = document.createElement('div');
+  grid.className = 'card-grid';
+
+  enrolled.forEach(function(sub) {
+    var card = buildEnrolledCard(sub);
+    grid.appendChild(card);
+  });
+
+  panel.appendChild(grid);
 }
 
-function buildSubscriptionCard(subId, sub) {
-  const displayName = sub.displayName || '';
-  const enabled = sub.enabled !== false; // default true per schema
-  const tagOverrideCount = Object.keys(sub.tagOverrides || {}).length;
-  const resourceRuleCount = Object.keys(sub.resourceTypeRules || {}).length;
+function buildEnrolledCard(sub) {
+  var isActive = sub.active !== false;
 
-  const card = document.createElement('div');
+  var card = document.createElement('div');
   card.className = 'card';
   card.style.cursor = 'pointer';
-
-  // Header row: title block + enabled badge
-  const header = document.createElement('div');
-  header.style.cssText = 'display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px;';
-
-  const titleBlock = document.createElement('div');
-  titleBlock.style.minWidth = '0';
-
-  const cardTitle = document.createElement('div');
-  cardTitle.className = 'card-title';
-  cardTitle.style.cssText = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-  if (displayName) {
-    cardTitle.textContent = displayName;
-  } else {
-    const placeholder = document.createElement('span');
-    placeholder.style.cssText = 'color:var(--text-muted);font-style:italic;';
-    placeholder.textContent = 'Unnamed';
-    cardTitle.appendChild(placeholder);
+  if (!isActive) {
+    card.style.opacity = '0.7';
   }
 
-  const cardSubtitle = document.createElement('div');
+  // Header row: title block + badges column
+  var header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px;';
+
+  var titleBlock = document.createElement('div');
+  titleBlock.style.minWidth = '0';
+
+  var cardTitle = document.createElement('div');
+  cardTitle.className = 'card-title';
+  cardTitle.style.cssText = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+  cardTitle.textContent = sub.displayName || sub.subscriptionId;
+
+  var cardSubtitle = document.createElement('div');
   cardSubtitle.className = 'card-subtitle';
   cardSubtitle.style.cssText = 'font-family:monospace;word-break:break-all;';
-  cardSubtitle.textContent = subId;
+  cardSubtitle.textContent = sub.subscriptionId;
 
   titleBlock.appendChild(cardTitle);
   titleBlock.appendChild(cardSubtitle);
 
-  const badge = document.createElement('span');
-  badge.setAttribute('data-badge', '');
-  badge.className = 'badge ' + (enabled ? 'badge-enabled' : 'badge-disabled');
-  badge.textContent = enabled ? 'Enabled' : 'Disabled';
+  var badges = document.createElement('div');
+  badges.style.cssText = 'display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0;';
 
-  const badges = document.createElement('div');
-  badges.style.cssText = 'display:flex;flex-direction:column;gap:4px;align-items:flex-end;';
-  badges.appendChild(badge);
+  var statusBadge = document.createElement('span');
+  statusBadge.className = 'badge ' + (isActive ? 'badge-enabled' : 'badge-warning');
+  statusBadge.textContent = isActive ? 'Active' : 'Paused';
+  badges.appendChild(statusBadge);
 
-  // Enrollment health badge (populated by verifyAllEnrollments)
-  const healthBadge = document.createElement('span');
-  healthBadge.className = 'badge badge-info';
-  healthBadge.textContent = 'Not Verified';
-  healthBadge.setAttribute('data-health-badge', subId);
-  healthBadge.style.fontSize = '0.65rem';
-  badges.appendChild(healthBadge);
+  if (sub.hasCustomConfig) {
+    var customBadge = document.createElement('span');
+    customBadge.className = 'badge badge-info';
+    customBadge.textContent = 'Custom Config';
+    badges.appendChild(customBadge);
+  }
 
   header.appendChild(titleBlock);
   header.appendChild(badges);
   card.appendChild(header);
 
-  // Counts row
-  const body = document.createElement('div');
+  // Body
+  var body = document.createElement('div');
   body.className = 'card-body';
   body.style.marginBottom = '16px';
 
-  const counts = document.createElement('div');
-  counts.style.cssText = 'display:flex;gap:16px;flex-wrap:wrap;';
+  if (!isActive) {
+    var pausedMsg = document.createElement('div');
+    pausedMsg.style.cssText = 'color:var(--warning);font-size:0.875rem;';
+    pausedMsg.textContent = 'Event Grid delivery paused \u2014 no tags being applied';
+    body.appendChild(pausedMsg);
+  } else if (sub.hasCustomConfig) {
+    var config = getConfig();
+    var subConfig = (config.subscriptions && config.subscriptions[sub.subscriptionId]) || {};
+    var tagOverrideCount = Object.keys(subConfig.tagOverrides || {}).length;
+    var resourceRuleCount = Object.keys(subConfig.resourceTypeRules || {}).length;
 
-  function makeCounter(value, label) {
-    const item = document.createElement('div');
-    const val = document.createElement('div');
-    val.style.cssText = 'font-size:1.25rem;font-weight:700;color:var(--text-primary);';
-    val.textContent = String(value);
-    const lbl = document.createElement('div');
-    lbl.style.cssText = 'font-size:0.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;';
-    lbl.textContent = label;
-    item.appendChild(val);
-    item.appendChild(lbl);
-    return item;
+    var counts = document.createElement('div');
+    counts.style.cssText = 'display:flex;gap:16px;flex-wrap:wrap;';
+
+    function makeCounter(value, label) {
+      var item = document.createElement('div');
+      var val = document.createElement('div');
+      val.style.cssText = 'font-size:1.25rem;font-weight:700;color:var(--text-primary);';
+      val.textContent = String(value);
+      var lbl = document.createElement('div');
+      lbl.style.cssText = 'font-size:0.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;';
+      lbl.textContent = label;
+      item.appendChild(val);
+      item.appendChild(lbl);
+      return item;
+    }
+
+    counts.appendChild(makeCounter(tagOverrideCount, 'Tag Overrides'));
+    counts.appendChild(makeCounter(resourceRuleCount, 'Resource Rules'));
+    body.appendChild(counts);
+  } else {
+    var defaultsMsg = document.createElement('div');
+    defaultsMsg.style.cssText = 'color:var(--text-secondary);font-size:0.875rem;';
+    defaultsMsg.textContent = 'Using global defaults \u2014 no custom overrides';
+    body.appendChild(defaultsMsg);
   }
 
-  counts.appendChild(makeCounter(tagOverrideCount, 'Tag Overrides'));
-  counts.appendChild(makeCounter(resourceRuleCount, 'Resource Rules'));
-  body.appendChild(counts);
   card.appendChild(body);
 
-  // Footer: toggle + remove. Stops propagation to avoid triggering card click.
-  const footer = document.createElement('div');
+  // Footer: toggle + config action. Stops propagation to avoid triggering card click.
+  var footer = document.createElement('div');
   footer.className = 'card-footer';
   footer.addEventListener('click', function(e) {
     e.stopPropagation();
   });
 
-  // Toggle (CSS-only: .toggle-input / .toggle-track / .toggle-thumb)
-  const safeToggleId = 'toggle-' + subId.replace(/[^a-zA-Z0-9]/g, '-');
-  const toggleWrapper = document.createElement('label');
+  // Tagging toggle
+  var safeToggleId = 'toggle-' + sub.subscriptionId.replace(/[^a-zA-Z0-9]/g, '-');
+  var toggleWrapper = document.createElement('label');
   toggleWrapper.className = 'toggle-wrapper';
   toggleWrapper.setAttribute('for', safeToggleId);
 
-  const toggleInput = document.createElement('input');
+  var toggleInput = document.createElement('input');
   toggleInput.type = 'checkbox';
   toggleInput.id = safeToggleId;
   toggleInput.className = 'toggle-input';
-  toggleInput.checked = enabled;
+  toggleInput.checked = isActive;
   toggleInput.addEventListener('change', function() {
-    toggleSubscription(subId, toggleInput.checked);
+    handleTaggingToggle(sub, toggleInput);
   });
 
-  const toggleTrack = document.createElement('span');
+  var toggleTrack = document.createElement('span');
   toggleTrack.className = 'toggle-track';
-  const toggleThumb = document.createElement('span');
+  var toggleThumb = document.createElement('span');
   toggleThumb.className = 'toggle-thumb';
   toggleTrack.appendChild(toggleThumb);
 
-  const toggleLabel = document.createElement('span');
+  var toggleLabel = document.createElement('span');
   toggleLabel.className = 'toggle-label';
-  toggleLabel.textContent = 'Enabled';
+  toggleLabel.setAttribute('data-toggle-label', sub.subscriptionId);
+  toggleLabel.textContent = isActive ? 'Tagging active' : 'Tagging paused';
 
   toggleWrapper.appendChild(toggleInput);
   toggleWrapper.appendChild(toggleTrack);
   toggleWrapper.appendChild(toggleLabel);
   footer.appendChild(toggleWrapper);
 
-  // Remove button
-  const removeBtn = document.createElement('button');
-  removeBtn.className = 'btn btn-danger btn-sm';
-  removeBtn.textContent = 'Remove';
-  removeBtn.addEventListener('click', function() {
-    openRemoveSubscriptionModal(subId, displayName);
-  });
-  footer.appendChild(removeBtn);
+  // Config action button
+  var configBtn = document.createElement('button');
+  if (sub.hasCustomConfig) {
+    configBtn.className = 'btn btn-sm';
+    configBtn.style.color = 'var(--error)';
+    configBtn.style.borderColor = 'var(--error)';
+    configBtn.textContent = 'Remove Custom Config';
+    configBtn.addEventListener('click', function() {
+      openRemoveCustomConfigModal(sub);
+    });
+  } else {
+    configBtn.className = 'btn btn-sm';
+    configBtn.style.color = 'var(--info)';
+    configBtn.style.borderColor = 'var(--info)';
+    configBtn.textContent = '+ Add Custom Config';
+    configBtn.addEventListener('click', function() {
+      addCustomConfig(sub);
+    });
+  }
+  footer.appendChild(configBtn);
 
   card.appendChild(footer);
 
   // Clicking the card navigates to the rules tab
   card.addEventListener('click', function() {
-    navigateToRules(subId);
+    navigateToRules(sub.subscriptionId);
   });
 
   return card;
 }
 
-async function toggleSubscription(subId, newEnabled) {
-  const config = getConfig();
-  if (!config.subscriptions[subId]) return;
+async function handleTaggingToggle(sub, toggleInput) {
+  var turningOn = toggleInput.checked;
+  var labelEl = document.querySelector('[data-toggle-label="' + sub.subscriptionId + '"]');
 
-  config.subscriptions[subId].enabled = newEnabled;
-  const ok = await saveConfig(config);
-
-  if (ok) {
-    // Update badge in place without full re-render
-    const safeToggleId = 'toggle-' + subId.replace(/[^a-zA-Z0-9]/g, '-');
-    const toggleEl = document.getElementById(safeToggleId);
-    if (toggleEl) {
-      const badgeEl = toggleEl.closest('.card').querySelector('[data-badge]');
-      if (badgeEl) {
-        badgeEl.className = 'badge ' + (newEnabled ? 'badge-enabled' : 'badge-disabled');
-        badgeEl.textContent = newEnabled ? 'Enabled' : 'Disabled';
-      }
+  try {
+    if (turningOn) {
+      await resumeEnrollment(sub);
+      showToast('Tagging resumed for ' + (sub.displayName || sub.subscriptionId), 'info');
+    } else {
+      await pauseEnrollment(sub);
+      showToast('Tagging paused for ' + (sub.displayName || sub.subscriptionId), 'warning');
     }
-  } else {
-    // Revert checkbox on save failure
-    const safeToggleId = 'toggle-' + subId.replace(/[^a-zA-Z0-9]/g, '-');
-    const toggleEl = document.getElementById(safeToggleId);
-    if (toggleEl) toggleEl.checked = !newEnabled;
+    if (labelEl) {
+      labelEl.textContent = turningOn ? 'Tagging active' : 'Tagging paused';
+    }
+    invalidateEnrollmentCache();
+  } catch (err) {
+    // Revert toggle on error
+    toggleInput.checked = !turningOn;
+    var msg = String(err && err.message ? err.message : err);
+    if (msg.indexOf('403') !== -1) {
+      showToast('Insufficient permissions \u2014 EventGrid Contributor required', 'error');
+    } else {
+      showToast('Failed to update tagging state: ' + msg, 'error');
+    }
   }
 }
 
-async function openAddSubscriptionModal() {
-  // Fetch available subscriptions from ARM
-  var token = await getManagementToken();
-  var availableSubs = [];
-  if (token) {
-    try {
-      var data = await azureFetch(
-        'https://management.azure.com/subscriptions?api-version=2022-12-01',
-        token
-      );
-      availableSubs = (data && data.value) ? data.value : [];
-    } catch (err) {
-      console.error('Failed to fetch subscriptions:', err);
-    }
-  }
-
-  // Filter out already-added subscriptions
+async function addCustomConfig(sub) {
   var config = getConfig();
-  var existing = config.subscriptions || {};
-  availableSubs = availableSubs.filter(function(s) {
-    return !existing[s.subscriptionId];
-  });
-
-  // Build modal body
-  var formWrapper = document.createElement('div');
-
-  if (availableSubs.length === 0) {
-    var emptyMsg = document.createElement('p');
-    emptyMsg.style.cssText = 'color:var(--text-secondary);font-size:0.875rem;';
-    emptyMsg.textContent = token
-      ? 'All accessible subscriptions have been added.'
-      : 'Could not load subscriptions. Check your permissions.';
-    formWrapper.appendChild(emptyMsg);
-  } else {
-    var selectLabel = document.createElement('label');
-    selectLabel.className = 'form-label';
-    selectLabel.setAttribute('for', 'new-sub-select');
-    selectLabel.textContent = 'Select Subscription';
-
-    var select = document.createElement('select');
-    select.id = 'new-sub-select';
-    select.className = 'form-input';
-
-    availableSubs.sort(function(a, b) {
-      return a.displayName.localeCompare(b.displayName);
-    });
-
-    availableSubs.forEach(function(sub) {
-      var opt = document.createElement('option');
-      opt.value = sub.subscriptionId;
-      opt.textContent = sub.displayName + ' (' + sub.subscriptionId.substring(0, 8) + '…)';
-      select.appendChild(opt);
-    });
-
-    var selectGroup = document.createElement('div');
-    selectGroup.className = 'form-group';
-    selectGroup.appendChild(selectLabel);
-    selectGroup.appendChild(select);
-    formWrapper.appendChild(selectGroup);
+  if (!config.subscriptions) {
+    config.subscriptions = {};
   }
-
-  // Store subs on the wrapper so confirmAdd can read them
-  formWrapper._availableSubs = availableSubs;
-
-  // Build action buttons with DOM (no inline onclick — CSP safe)
-  var cancelBtn = document.createElement('button');
-  cancelBtn.className = 'btn btn-secondary';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', closeModal);
-
-  var addBtn = document.createElement('button');
-  addBtn.className = 'btn btn-primary';
-  addBtn.textContent = 'Add';
-  if (availableSubs.length === 0) addBtn.disabled = true;
-  addBtn.addEventListener('click', function() {
-    confirmAddSubscription(formWrapper._availableSubs);
-  });
-
-  showModalDOM('Add Subscription', formWrapper, [cancelBtn, addBtn]);
-
-  setTimeout(function() {
-    var field = document.getElementById('new-sub-select');
-    if (field) field.focus();
-  }, 50);
-}
-
-async function confirmAddSubscription(availableSubs) {
-  var select = document.getElementById('new-sub-select');
-  if (!select) return;
-
-  var subId = select.value;
-  if (!subId) return;
-
-  var sub = availableSubs.find(function(s) { return s.subscriptionId === subId; });
-  var displayName = sub ? sub.displayName : subId;
-
-  var config = getConfig();
-  if (config.subscriptions[subId]) {
-    showToast('Subscription already added', 'error');
-    return;
+  if (!config.subscriptions[sub.subscriptionId]) {
+    config.subscriptions[sub.subscriptionId] = {
+      displayName: sub.displayName || sub.subscriptionId,
+      tagOverrides: {},
+      resourceTypeRules: {},
+    };
   }
-
-  config.subscriptions[subId] = {
-    displayName: displayName,
-    enabled: true,
-    tagOverrides: {},
-    resourceTypeRules: {},
-  };
 
   var ok = await saveConfig(config);
   if (ok) {
-    closeModal();
-    renderSubscriptionsTab();
+    invalidateEnrollmentCache();
+    var enrolled = await discoverEnrollment();
+    renderSubscriptionsTab(enrolled);
   }
 }
 
-function openRemoveSubscriptionModal(subId, displayName) {
-  // Build confirmation body with safe DOM methods so no user content touches HTML strings
-  const bodyEl = document.createElement('div');
+function openRemoveCustomConfigModal(sub) {
+  var bodyEl = document.createElement('div');
 
-  const p1 = document.createElement('p');
+  var p1 = document.createElement('p');
   p1.style.color = 'var(--text-secondary)';
-  p1.appendChild(document.createTextNode('Are you sure you want to remove '));
-  const strong = document.createElement('strong');
-  strong.style.color = 'var(--text-primary)';
-  strong.textContent = displayName || subId;
-  p1.appendChild(strong);
-  p1.appendChild(document.createTextNode('?'));
-
-  const p2 = document.createElement('p');
-  p2.style.cssText = 'color:var(--text-muted);font-size:0.8125rem;margin-top:8px;';
-  p2.textContent = subId;
-
-  const p3 = document.createElement('p');
-  p3.style.cssText = 'color:var(--error);font-size:0.8125rem;margin-top:12px;';
-  p3.textContent = 'This will delete all tag overrides and resource rules for this subscription.';
+  p1.textContent = 'Remove custom config for ' + (sub.displayName || sub.subscriptionId) +
+    '? This subscription will continue to be tagged using global defaults.';
 
   bodyEl.appendChild(p1);
-  bodyEl.appendChild(p2);
-  bodyEl.appendChild(p3);
 
   var cancelBtn = document.createElement('button');
   cancelBtn.className = 'btn btn-secondary';
@@ -404,32 +336,31 @@ function openRemoveSubscriptionModal(subId, displayName) {
 
   var removeBtn = document.createElement('button');
   removeBtn.className = 'btn btn-danger';
-  removeBtn.textContent = 'Remove';
+  removeBtn.textContent = 'Remove Config';
   removeBtn.addEventListener('click', function() {
-    confirmRemoveSubscription(subId);
+    confirmRemoveCustomConfig(sub);
   });
 
-  showModalDOM('Remove Subscription', bodyEl, [cancelBtn, removeBtn]);
+  showModalDOM('Remove Custom Config', bodyEl, [cancelBtn, removeBtn]);
 }
 
-async function confirmRemoveSubscription(subId) {
-  const config = getConfig();
-  if (!config.subscriptions[subId]) {
-    closeModal();
-    return;
+async function confirmRemoveCustomConfig(sub) {
+  var config = getConfig();
+  if (config.subscriptions && config.subscriptions[sub.subscriptionId]) {
+    delete config.subscriptions[sub.subscriptionId];
   }
 
-  delete config.subscriptions[subId];
-
-  const ok = await saveConfig(config);
+  var ok = await saveConfig(config);
   if (ok) {
     closeModal();
-    renderSubscriptionsTab();
+    invalidateEnrollmentCache();
+    var enrolled = await discoverEnrollment();
+    renderSubscriptionsTab(enrolled);
   }
 }
 
 function navigateToRules(subId) {
-  // Update tab indicator
+  // Update tab indicators
   document.querySelectorAll('.tab').forEach(function(t) {
     t.classList.remove('active');
   });
@@ -437,224 +368,14 @@ function navigateToRules(subId) {
     p.classList.remove('active');
   });
 
-  const rulesTab = document.querySelector('.tab[data-tab="rules"]');
+  var rulesTab = document.querySelector('.tab[data-tab="rules"]');
   if (rulesTab) rulesTab.classList.add('active');
 
-  const rulesPanel = document.getElementById('panel-rules');
+  var rulesPanel = document.getElementById('panel-rules');
   if (rulesPanel) rulesPanel.classList.add('active');
 
-  // Delegate to rules tab loader (defined in Task 5)
   if (typeof window.loadRulesTab === 'function') {
     window.loadRulesTab(subId);
-  }
-}
-
-async function verifyAllEnrollments() {
-  var token = await getManagementToken();
-  if (!token) {
-    showToast('Could not acquire token for enrollment check', 'error');
-    return;
-  }
-
-  var config = getConfig();
-  var configSubIds = Object.keys(config.subscriptions || {});
-
-  // Update all badges to show checking state
-  configSubIds.forEach(function(subId) {
-    var el = document.querySelector('[data-health-badge="' + subId + '"]');
-    if (el) {
-      el.className = 'badge badge-info';
-      el.textContent = 'Checking…';
-    }
-  });
-
-  // Fetch all accessible subscriptions to discover enrolled-but-unconfigured ones
-  var allSubs = [];
-  try {
-    var subsData = await azureFetch(
-      'https://management.azure.com/subscriptions?api-version=2022-12-01',
-      token
-    );
-    allSubs = (subsData && subsData.value) ? subsData.value : [];
-  } catch (err) {
-    console.error('Failed to fetch subscriptions for discovery:', err);
-  }
-
-  // Build full list: configured subs + unconfigured accessible subs
-  var unconfiguredSubs = allSubs.filter(function(s) {
-    return !config.subscriptions[s.subscriptionId];
-  });
-  var allSubIds = configSubIds.concat(unconfiguredSubs.map(function(s) {
-    return s.subscriptionId;
-  }));
-
-  // Check all subscriptions for Event Grid system topics in parallel
-  var results = await Promise.allSettled(allSubIds.map(function(subId) {
-    return checkEventGridEnrollment(subId, token);
-  }));
-
-  // Apply results to configured subscription badges
-  configSubIds.forEach(function(subId, i) {
-    var el = document.querySelector('[data-health-badge="' + subId + '"]');
-    if (!el) return;
-
-    var result = results[i];
-    if (result.status === 'rejected') {
-      el.className = 'badge badge-warning';
-      el.textContent = 'Check Failed';
-      el.title = String(result.reason);
-      return;
-    }
-
-    if (result.value) {
-      el.className = 'badge badge-enabled';
-      el.textContent = 'Enrolled';
-      el.title = 'Event Grid system topic found';
-    } else {
-      el.className = 'badge badge-warning';
-      el.textContent = 'No Event Grid';
-      el.title = 'In config but no Event Grid system topic deployed — run enroll.bicep to enable tagging';
-    }
-  });
-
-  // Render discovered enrolled-but-unconfigured subscriptions
-  var discovered = [];
-  unconfiguredSubs.forEach(function(sub, i) {
-    var resultIdx = configSubIds.length + i;
-    var result = results[resultIdx];
-    if (result.status === 'fulfilled' && result.value) {
-      discovered.push(sub);
-    }
-  });
-
-  renderDiscoveredSubs(discovered);
-
-  var msg = 'Verification complete';
-  if (discovered.length > 0) {
-    msg += ' — ' + discovered.length + ' enrolled sub' +
-      (discovered.length > 1 ? 's' : '') + ' not in config';
-  }
-  showToast(msg, discovered.length > 0 ? 'warning' : 'info');
-}
-
-async function checkEventGridEnrollment(subId, token) {
-  var url = 'https://management.azure.com/subscriptions/' + subId +
-    '/providers/Microsoft.EventGrid/systemTopics?api-version=2022-06-15';
-
-  var data = await azureFetch(url, token);
-  var topics = (data && data.value) ? data.value : [];
-
-  // Look for a system topic sourced from this subscription (case-insensitive)
-  return topics.some(function(topic) {
-    var topicType = (topic.properties && topic.properties.topicType) || '';
-    return topicType.toLowerCase() === 'microsoft.resources.subscriptions';
-  });
-}
-
-function renderDiscoveredSubs(discoveredSubs) {
-  var section = document.getElementById('discovered-subs-section');
-  if (!section) return;
-  section.textContent = '';
-
-  if (discoveredSubs.length === 0) return;
-
-  var heading = document.createElement('div');
-  heading.className = 'controls-bar';
-  heading.style.marginTop = '24px';
-
-  var title = document.createElement('span');
-  title.className = 'controls-bar-title';
-  title.textContent = 'Discovered Enrolled Subscriptions';
-  heading.appendChild(title);
-
-  var hint = document.createElement('span');
-  hint.style.cssText = 'color:var(--text-secondary);font-size:0.8125rem;';
-  hint.textContent = 'Event Grid enrolled but not in config — using global defaults only';
-  heading.appendChild(hint);
-
-  section.appendChild(heading);
-
-  var grid = document.createElement('div');
-  grid.className = 'card-grid';
-
-  discoveredSubs.forEach(function(sub) {
-    var card = document.createElement('div');
-    card.className = 'card';
-    card.style.borderColor = 'var(--warning)';
-    card.style.borderStyle = 'dashed';
-
-    // Header
-    var header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px;';
-
-    var titleBlock = document.createElement('div');
-    titleBlock.style.minWidth = '0';
-
-    var cardTitle = document.createElement('div');
-    cardTitle.className = 'card-title';
-    cardTitle.style.cssText = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-    cardTitle.textContent = sub.displayName;
-
-    var cardSubtitle = document.createElement('div');
-    cardSubtitle.className = 'card-subtitle';
-    cardSubtitle.style.cssText = 'font-family:monospace;word-break:break-all;';
-    cardSubtitle.textContent = sub.subscriptionId;
-
-    titleBlock.appendChild(cardTitle);
-    titleBlock.appendChild(cardSubtitle);
-
-    var badge = document.createElement('span');
-    badge.className = 'badge badge-warning';
-    badge.textContent = 'Unconfigured';
-
-    header.appendChild(titleBlock);
-    header.appendChild(badge);
-    card.appendChild(header);
-
-    // Description
-    var desc = document.createElement('p');
-    desc.style.cssText = 'color:var(--text-secondary);font-size:0.8125rem;margin:0 0 12px;';
-    desc.textContent = 'This subscription has an Event Grid enrollment but no entry in stamper.json. It receives global default tags only.';
-    card.appendChild(desc);
-
-    // Add to Config button
-    var footer = document.createElement('div');
-    footer.className = 'card-footer';
-
-    var addBtn = document.createElement('button');
-    addBtn.className = 'btn btn-primary btn-sm';
-    addBtn.textContent = 'Add to Config';
-    addBtn.addEventListener('click', function() {
-      addDiscoveredToConfig(sub.subscriptionId, sub.displayName);
-    });
-    footer.appendChild(addBtn);
-    card.appendChild(footer);
-
-    grid.appendChild(card);
-  });
-
-  section.appendChild(grid);
-}
-
-async function addDiscoveredToConfig(subId, displayName) {
-  var config = getConfig();
-  if (config.subscriptions[subId]) {
-    showToast('Subscription already in config', 'info');
-    renderSubscriptionsTab();
-    return;
-  }
-
-  config.subscriptions[subId] = {
-    displayName: displayName,
-    enabled: true,
-    tagOverrides: {},
-    resourceTypeRules: {},
-  };
-
-  var ok = await saveConfig(config);
-  if (ok) {
-    showToast('Added ' + displayName + ' to config', 'info');
-    renderSubscriptionsTab();
   }
 }
 
