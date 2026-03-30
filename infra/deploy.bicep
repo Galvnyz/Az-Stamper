@@ -1,7 +1,6 @@
 targetScope = 'subscription'
 
-@description('Azure region for all resources.')
-param location string
+var location = deployment().location
 
 @description('Name of the resource group to create or use.')
 param resourceGroupName string = 'rg-az-stamper'

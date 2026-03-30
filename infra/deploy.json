@@ -5,16 +5,10 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "11995443912896856423"
+      "templateHash": "17216603779193568180"
     }
   },
   "parameters": {
-    "location": {
-      "type": "string",
-      "metadata": {
-        "description": "Azure region for all resources."
-      }
-    },
     "resourceGroupName": {
       "type": "string",
       "defaultValue": "rg-az-stamper",
@@ -77,12 +71,15 @@
       }
     }
   },
+  "variables": {
+    "location": "[deployment().location]"
+  },
   "resources": [
     {
       "type": "Microsoft.Resources/resourceGroups",
       "apiVersion": "2024-03-01",
       "name": "[parameters('resourceGroupName')]",
-      "location": "[parameters('location')]",
+      "location": "[variables('location')]",
       "tags": {
         "Project": "Az-Stamper",
         "ManagedBy": "Bicep",
@@ -127,7 +124,7 @@
         "mode": "Incremental",
         "parameters": {
           "location": {
-            "value": "[parameters('location')]"
+            "value": "[variables('location')]"
           },
           "storageAccountName": {
             "value": "[parameters('storageAccountName')]"
