@@ -18,20 +18,10 @@ resource funcApp 'Microsoft.Web/sites@2023-12-01' existing = {
   scope: resourceGroup(resourceGroupName)
 }
 
-// Wait for the function app to finish loading before Event Grid validates the endpoint
-module readinessCheck 'modules/functionReadinessCheck.bicep' = {
-  name: 'readinessCheck'
-  scope: resourceGroup(resourceGroupName)
-  params: {
-    functionAppName: functionAppName
-  }
-}
-
-// Event Grid module deploys after the function is confirmed ready
+// Event Grid — function code is already deployed by the hub's packageDeploy step
 module eventGrid 'modules/enrollment.bicep' = {
   name: 'az-stamper-enrollment'
   scope: resourceGroup(resourceGroupName)
-  dependsOn: [readinessCheck]
   params: {
     systemTopicName: systemTopicName
     eventSubscriptionName: eventSubscriptionName

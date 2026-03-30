@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "9998097337827983947"
+      "templateHash": "13680915525753939255"
     }
   },
   "parameters": {
@@ -39,83 +39,6 @@
     }
   },
   "resources": [
-    {
-      "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2025-04-01",
-      "name": "readinessCheck",
-      "resourceGroup": "[parameters('resourceGroupName')]",
-      "properties": {
-        "expressionEvaluationOptions": {
-          "scope": "inner"
-        },
-        "mode": "Incremental",
-        "parameters": {
-          "functionAppName": {
-            "value": "[parameters('functionAppName')]"
-          }
-        },
-        "template": {
-          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-          "contentVersion": "1.0.0.0",
-          "metadata": {
-            "_generator": {
-              "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "6090549278719109117"
-            }
-          },
-          "parameters": {
-            "functionAppName": {
-              "type": "string",
-              "metadata": {
-                "description": "Name of the function app to check."
-              }
-            },
-            "location": {
-              "type": "string",
-              "defaultValue": "[resourceGroup().location]"
-            }
-          },
-          "resources": [
-            {
-              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-              "apiVersion": "2023-01-31",
-              "name": "[format('{0}-readiness-id', parameters('functionAppName'))]",
-              "location": "[parameters('location')]"
-            },
-            {
-              "type": "Microsoft.Resources/deploymentScripts",
-              "apiVersion": "2023-08-01",
-              "name": "[format('{0}-readiness-check', parameters('functionAppName'))]",
-              "location": "[parameters('location')]",
-              "kind": "AzureCLI",
-              "identity": {
-                "type": "UserAssigned",
-                "userAssignedIdentities": {
-                  "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-readiness-id', parameters('functionAppName'))))]": {}
-                }
-              },
-              "properties": {
-                "azCliVersion": "2.63.0",
-                "retentionInterval": "PT1H",
-                "timeout": "PT15M",
-                "cleanupPreference": "OnSuccess",
-                "scriptContent": "      echo \"Waiting for function app to finish loading from package...\"\n      for i in $(seq 1 40); do\n        status=$(curl -s -o /dev/null -w \"%{http_code}\" \"https://${FUNCTION_APP_NAME}.azurewebsites.net/\" --max-time 10 2>/dev/null)\n        if [ \"$status\" = \"200\" ] || [ \"$status\" = \"401\" ] || [ \"$status\" = \"404\" ]; then\n          echo \"Function host is responding (HTTP $status, attempt $i)\"\n          echo \"Waiting 30s for functions to finish registering...\"\n          sleep 30\n          echo \"Ready\"\n          exit 0\n        fi\n        echo \"Attempt $i/40: HTTP $status (not ready), waiting 20s...\"\n        sleep 20\n      done\n      echo \"ERROR: Function app did not become ready within 15 minutes\"\n      exit 1\n    ",
-                "environmentVariables": [
-                  {
-                    "name": "FUNCTION_APP_NAME",
-                    "value": "[parameters('functionAppName')]"
-                  }
-                ]
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-readiness-id', parameters('functionAppName')))]"
-              ]
-            }
-          ]
-        }
-      }
-    },
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
@@ -212,10 +135,7 @@
             }
           ]
         }
-      },
-      "dependsOn": [
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'readinessCheck')]"
-      ]
+      }
     },
     {
       "type": "Microsoft.Resources/deployments",
