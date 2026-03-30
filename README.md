@@ -19,6 +19,29 @@
 
 ---
 
+## Table of Contents
+
+- [What It Does](#what-it-does)
+- [How It Works](#how-it-works)
+- [Architecture](#architecture)
+- [Configuration](#configuration)
+  - [How Tags Are Configured](#how-tags-are-configured)
+  - [Template Variables](#template-variables)
+  - [Adding a New Tag](#adding-a-new-tag)
+  - [Ignore Patterns](#ignore-patterns)
+  - [Caller Identity Resolution](#caller-identity-resolution)
+- [Deployment](#deployment)
+  - [Deploy to Azure](#deploy-to-azure)
+  - [Developer Setup (CI/CD)](#developer-setup-cicd)
+- [Permissions](#permissions)
+- [Multi-Subscription Enrollment](#multi-subscription-enrollment)
+- [CI/CD](#cicd)
+- [Development](#development)
+- [Cost](#cost)
+- [License](#license)
+
+---
+
 Az-Stamper solves a fundamental Azure governance problem: **it's surprisingly hard to know who created a resource.**
 
 When you create a VM, storage account, or any other resource in Azure, you don't interact with the resource directly. Instead, your request goes through **Azure Resource Manager (ARM)** — the control plane that handles all resource operations. ARM authenticates your identity, validates your permissions, and executes the deployment. The actual creator information lives in ARM's activity log as a claim on the API call, but:
@@ -139,16 +162,11 @@ When a user creates a resource, their UPN (e.g., `alice@contoso.com`) is embedde
 
 ## Deployment
 
-### One-Click Deploy
+### Deploy to Azure
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fdeploy.json)
+Deployment is two steps: **deploy the hub**, then **enroll each subscription** you want to tag.
 
-This deploys the Az-Stamper hub infrastructure to your Azure subscription:
-- Resource group, storage account, function app, App Insights, Log Analytics
-- Subscription-scoped RBAC (Reader + Tag Contributor)
-- Function code (via WEBSITE_RUN_FROM_PACKAGE)
-
-After hub deployment, you'll enroll your subscription to start tagging (Step 2 below).
+> **Why two steps?** The hub deployment creates the function app and infrastructure, but does **not** automatically enroll any subscription for tagging. This is intentional — it gives you full control over which subscriptions get monitored and when. You explicitly enroll each subscription you want tagged, including your home subscription. This separation also avoids the Event Grid cold-start race condition (the function needs time to start before Event Grid can validate its endpoint).
 
 **Prerequisites:**
 - An Azure subscription with **Owner** or **Contributor + User Access Administrator** role
@@ -164,12 +182,11 @@ After hub deployment, you'll enroll your subscription to start tagging (Step 2 b
    - **Function App Name** — name for the function app (default: `func-az-stamper`)
    - **App Insights Name** — name for Application Insights (default: `ai-az-stamper`)
 3. Click **Review + create**, then **Create**
-4. Deployment takes **3-5 minutes**. You can watch progress on the deployment page.
-5. Wait for deployment to complete (3-5 minutes).
+4. Deployment takes **3-5 minutes**. Wait for it to complete before proceeding to Step 2.
 
 #### Step 2: Enroll your subscription
 
-The hub deploys the function app and RBAC, but Event Grid needs to be set up separately (the function needs time to start before Event Grid can validate its endpoint).
+Enroll your subscription to start tagging. The template waits for the function to finish loading before creating the Event Grid subscription, so you can run this immediately after Step 1 completes.
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json)
 
