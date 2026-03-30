@@ -282,10 +282,10 @@ async function handleTaggingToggle(sub, toggleInput) {
       await pauseEnrollment(sub);
       showToast('Tagging paused for ' + (sub.displayName || sub.subscriptionId), 'warning');
     }
-    if (labelEl) {
-      labelEl.textContent = turningOn ? 'Tagging active' : 'Tagging paused';
-    }
+    // Re-render with fresh enrollment data
     invalidateEnrollmentCache();
+    var updated = await refreshEnrollment();
+    renderSubscriptionsTab(updated);
   } catch (err) {
     // Revert toggle on error
     toggleInput.checked = !turningOn;
