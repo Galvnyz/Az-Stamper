@@ -23,9 +23,18 @@ function renderRulesTab(selectedSubId) {
   const panel = document.getElementById('panel-rules');
   panel.textContent = '';
 
-  const config = getConfig();
-  const subs = config.subscriptions || {};
-  const subIds = Object.keys(subs);
+  var config = getConfig();
+  var configSubs = config.subscriptions || {};
+  var enrolledSubs = _enrollmentCache || [];
+  var subIds = enrolledSubs.map(function(s) { return s.subscriptionId; });
+  if (subIds.length === 0) {
+    subIds = Object.keys(configSubs);
+  }
+  var subDisplayNames = {};
+  enrolledSubs.forEach(function(s) { subDisplayNames[s.subscriptionId] = s.displayName; });
+  Object.keys(configSubs).forEach(function(id) {
+    if (!subDisplayNames[id]) subDisplayNames[id] = configSubs[id].displayName || '';
+  });
 
   // ── Controls bar ──────────────────────────────────────────────────────────
   const bar = document.createElement('div');
@@ -59,7 +68,7 @@ function renderRulesTab(selectedSubId) {
   subIds.forEach(function(subId) {
     const opt = document.createElement('option');
     opt.value = subId;
-    const name = (subs[subId].displayName || '').trim();
+    var name = (subDisplayNames[subId] || '').trim();
     opt.textContent = name ? name + ' (' + subId + ')' : subId;
     if (subId === selectedSubId) opt.selected = true;
     selector.appendChild(opt);
@@ -89,11 +98,11 @@ function renderRulesTab(selectedSubId) {
 
     const emptyTitle = document.createElement('div');
     emptyTitle.className = 'empty-state-title';
-    emptyTitle.textContent = 'No subscriptions configured';
+    emptyTitle.textContent = 'No enrolled subscriptions';
 
     const emptyDesc = document.createElement('div');
     emptyDesc.className = 'empty-state-desc';
-    emptyDesc.textContent = 'Add a subscription on the Subscriptions tab first, then return here to configure tag rules.';
+    emptyDesc.textContent = 'Deploy enroll.bicep to an Azure subscription to start viewing tag rules.';
 
     empty.appendChild(icon);
     empty.appendChild(emptyTitle);
@@ -103,7 +112,7 @@ function renderRulesTab(selectedSubId) {
   }
 
   // ── Prompt to select ─────────────────────────────────────────────────────
-  if (!selectedSubId || !subs[selectedSubId]) {
+  if (!selectedSubId) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
 
@@ -126,7 +135,85 @@ function renderRulesTab(selectedSubId) {
     return;
   }
 
-  const subConfig = subs[selectedSubId];
+  var hasCustomConfig = !!configSubs[selectedSubId];
+
+  if (!hasCustomConfig) {
+    // Info banner
+    var infoBanner = document.createElement('div');
+    infoBanner.className = 'info-banner';
+
+    var infoIcon = document.createElement('span');
+    infoIcon.style.cssText = 'color:var(--info);font-size:16px;';
+    infoIcon.textContent = '\u2139';
+
+    var infoText = document.createElement('span');
+    infoText.style.cssText = 'color:var(--info);font-size:0.8125rem;';
+    infoText.textContent = 'This subscription uses global defaults only \u2014 no custom overrides configured. ';
+
+    var addConfigLink = document.createElement('span');
+    addConfigLink.style.cssText = 'cursor:pointer;text-decoration:underline;';
+    addConfigLink.textContent = 'Add custom config';
+    addConfigLink.addEventListener('click', async function() {
+      var cfg = getConfig();
+      var enrolledSub = (_enrollmentCache || []).find(function(s) { return s.subscriptionId === selectedSubId; });
+      cfg.subscriptions[selectedSubId] = {
+        displayName: (enrolledSub && enrolledSub.displayName) || selectedSubId,
+        enabled: true,
+        tagOverrides: {},
+        resourceTypeRules: {},
+      };
+      var ok = await saveConfig(cfg);
+      if (ok) {
+        invalidateEnrollmentCache();
+        renderRulesTab(selectedSubId);
+      }
+    });
+    infoText.appendChild(addConfigLink);
+
+    infoBanner.appendChild(infoIcon);
+    infoBanner.appendChild(infoText);
+    panel.appendChild(infoBanner);
+
+    // Read-only global defaults
+    var globalSection = buildSection('Effective Tag Map', 'Read-only \u2014 global defaults applied to this subscription');
+    var globalBody = globalSection.querySelector('.rules-section-body');
+
+    var globalDefaults = [
+      { name: 'Creator',        value: '{caller}',    overwrite: false },
+      { name: 'CreatedOn',      value: '{timestamp}', overwrite: false },
+      { name: 'LastModifiedBy', value: '{caller}',    overwrite: true  },
+      { name: 'LastModifiedOn', value: '{timestamp}', overwrite: true  },
+      { name: 'StampedBy',      value: 'Az-Stamper',  overwrite: false },
+    ];
+
+    globalDefaults.forEach(function(def) {
+      var row = document.createElement('div');
+      row.className = 'rule-row';
+
+      var keyEl = document.createElement('div');
+      keyEl.className = 'rule-key';
+      keyEl.textContent = def.name;
+
+      var valueEl = document.createElement('div');
+      valueEl.className = 'rule-value';
+      valueEl.style.fontFamily = 'monospace';
+      valueEl.textContent = def.value;
+
+      var overwriteChip = document.createElement('span');
+      overwriteChip.className = 'tag-chip ' + (def.overwrite ? 'tag-new' : 'tag-existing');
+      overwriteChip.textContent = def.overwrite ? 'overwrite: true' : 'overwrite: false';
+
+      row.appendChild(keyEl);
+      row.appendChild(valueEl);
+      row.appendChild(overwriteChip);
+      globalBody.appendChild(row);
+    });
+
+    panel.appendChild(globalSection);
+    return;
+  }
+
+  var subConfig = configSubs[selectedSubId];
 
   // ── Section A: Global Defaults (read-only) ────────────────────────────────
   const globalSection = buildSection('Global Defaults', 'Applied to all resources. Read-only — configure per-subscription overrides below.');
