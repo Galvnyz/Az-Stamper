@@ -134,14 +134,57 @@ This deploys the complete Az-Stamper solution to your Azure subscription:
 - An Azure subscription with **Owner** or **Contributor + User Access Administrator** role
 - The `Microsoft.EventGrid` resource provider registered on the subscription (`az provider register --namespace Microsoft.EventGrid`)
 
-**After deployment**, resources begin tagging automatically within minutes. To enroll additional subscriptions, see [Multi-Subscription Enrollment](#multi-subscription-enrollment).
+#### What happens when you click the button
 
-**Optional post-deploy step** — set the function's own identity to prevent self-tagging (defense-in-depth; Event Grid filters already prevent recursive loops):
+1. The Azure portal opens a **Custom deployment** form. Fill in the required fields:
+   - **Region** — pick the Azure region closest to you (e.g., East US 2, West Europe)
+   - **Resource Group Name** — a name for the new resource group (default: `rg-az-stamper`)
+   - **Storage Account Name** — must be **globally unique**, 3-24 lowercase letters and numbers only (e.g., `stazstamper42`)
+   - **Function App Name** — name for the function app (default: `func-az-stamper`)
+   - **App Insights Name** — name for Application Insights (default: `ai-az-stamper`)
+2. Click **Review + create**, then **Create**
+3. Deployment takes **3-5 minutes**. You can watch progress on the deployment page.
+
+#### Verify it works
+
+After deployment completes, create a test resource and check for tags:
+
+```bash
+# Open Azure Cloud Shell (the terminal icon >_ in the portal header) and run:
+
+# Create a test storage account (use your resource group name)
+az storage account create \
+  --name stazstampertest$RANDOM \
+  --resource-group rg-az-stamper \
+  --sku Standard_LRS
+
+# Wait 60-90 seconds for the event to flow through (first invocation has a cold start)
+
+# Check the tags (replace the resource ID with yours from the create output)
+az tag list --resource-id <resource-id-from-create-output>
+```
+
+You should see all five tags: `Creator`, `CreatedOn`, `LastModifiedBy`, `LastModifiedOn`, `StampedBy`.
+
+#### Find your deployment outputs
+
+You'll need these values to enroll additional subscriptions. In the Azure portal:
+1. Go to your resource group (e.g., `rg-az-stamper`)
+2. Click **Deployments** in the left menu → click **hub**
+3. Click **Outputs** — save `functionAppId` and `principalId`
+
+#### Optional: set SelfPrincipalId
+
+This is a defense-in-depth measure that prevents the function from processing its own tag operations. Event Grid filters already prevent recursive loops, so this step is optional.
+
+Open **Azure Cloud Shell** (the `>_` icon in the portal header) and run:
 
 ```bash
 PRINCIPAL_ID=$(az functionapp identity show --name <your-function-app> --resource-group <your-rg> --query principalId -o tsv)
 az functionapp config appsettings set --name <your-function-app> --resource-group <your-rg> --settings "StamperConfig__SelfPrincipalId=$PRINCIPAL_ID"
 ```
+
+**After deployment**, resources begin tagging automatically. To enroll additional subscriptions, see [Multi-Subscription Enrollment](#multi-subscription-enrollment).
 
 ---
 
@@ -162,6 +205,8 @@ You also need an Azure subscription where you have **Owner** or **Contributor + 
 ### Step 1: Create an Entra ID App Registration
 
 GitHub Actions needs a way to authenticate to Azure to deploy code and infrastructure. Instead of storing passwords as secrets, we use **OIDC federated credentials** — GitHub proves its identity to Azure using a token, and Azure trusts it based on a pre-configured trust relationship. No secrets to rotate.
+
+> **First time?** Make sure you have the Az PowerShell module installed: `Install-Module Az -Scope CurrentUser`
 
 ```powershell
 Connect-AzAccount
@@ -331,8 +376,8 @@ Subscriptions not explicitly configured receive the global default tags automati
 
 | Parameter | Description |
 |-----------|-------------|
-| `functionAppResourceId` | Full resource ID of the Az-Stamper function app (from hub deployment outputs) |
-| `functionAppPrincipalId` | Managed identity principal ID (from hub deployment outputs) |
+| `functionAppResourceId` | Full resource ID of the Az-Stamper function app (find in: Azure portal → your RG → Deployments → hub → Outputs → `functionAppId`) |
+| `functionAppPrincipalId` | Managed identity principal ID (find in: Azure portal → your RG → Deployments → hub → Outputs → `principalId`) |
 | `eventGridResourceGroupName` | A resource group in the target subscription for Event Grid resources |
 
 ### Unenroll a Subscription

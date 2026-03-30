@@ -105,3 +105,6 @@ output functionAppName string = functionApp.outputs.functionAppName
 output functionAppId string = functionApp.outputs.functionAppId
 output principalId string = functionApp.outputs.principalId
 output swaHostname string = swa.outputs.defaultHostname
+output appInsightsId string = monitoring.outputs.appInsightsId
+output storageAccountName string = storage.outputs.storageAccountName
+output swaName string = swa.outputs.staticWebAppName

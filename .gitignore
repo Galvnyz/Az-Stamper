@@ -12,4 +12,5 @@ _*.ps1
 infra/*.json
 !infra/enroll.json
 !infra/deploy.json
+swa/js/app-config.js
 .superpowers/

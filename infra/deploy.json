@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "9812919909172077100"
+      "templateHash": "11995443912896856423"
     }
   },
   "parameters": {
@@ -152,7 +152,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "10713126596406450262"
+              "templateHash": "3613036790979275173"
             }
           },
           "parameters": {
@@ -770,6 +770,18 @@
             "swaHostname": {
               "type": "string",
               "value": "[reference(resourceId('Microsoft.Resources/deployments', 'swa'), '2025-04-01').outputs.defaultHostname.value]"
+            },
+            "appInsightsId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.appInsightsId.value]"
+            },
+            "storageAccountName": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage'), '2025-04-01').outputs.storageAccountName.value]"
+            },
+            "swaName": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Resources/deployments', 'swa'), '2025-04-01').outputs.staticWebAppName.value]"
             }
           }
         }
