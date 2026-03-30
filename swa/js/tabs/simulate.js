@@ -655,20 +655,7 @@ function formatTagsForCsv(tagsObj) {
   }).join('; ');
 }
 
-// ── Tag chip styles injected once ─────────────────────────────────────────────
-// tag-existing, tag-new, tag-excluded are expected to be in styles.css.
-// Provide a fallback via a style block if not already declared.
-(function injectTagChipFallbacks() {
-  if (document.getElementById('sim-tag-chip-styles')) return;
-  var style = document.createElement('style');
-  style.id = 'sim-tag-chip-styles';
-  style.textContent =
-    '.tag-chip{display:inline-block;padding:2px 7px;border-radius:4px;font-size:0.7rem;font-family:monospace;margin:2px 2px 2px 0;white-space:nowrap;}' +
-    '.tag-existing{background:var(--surface-secondary,#f1f5f9);color:var(--text-secondary,#64748b);border:1px solid var(--border,#e2e8f0);}' +
-    '.tag-new{background:rgba(34,197,94,0.12);color:var(--success,#16a34a);border:1px solid rgba(34,197,94,0.3);}' +
-    '.tag-excluded{background:rgba(245,158,11,0.12);color:var(--warning,#d97706);border:1px solid rgba(245,158,11,0.3);}';
-  document.head.appendChild(style);
-})();
+// Tag chip styles are defined in styles.css — no JS injection needed.
 
 // Expose entry point on window so tab-switcher inline script can call it
 window.loadSimulateTab = loadSimulateTab;
