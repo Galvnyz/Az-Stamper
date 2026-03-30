@@ -33,6 +33,8 @@ async function refreshEnrollment() {
   }
 
   var subs = (subsData && subsData.value) ? subsData.value : [];
+  console.log('Enrollment: checking ' + subs.length + ' accessible subscription(s): ' +
+    subs.map(function(s) { return s.displayName; }).join(', '));
 
   await loadConfig();
   var config = getConfig();
@@ -65,6 +67,9 @@ async function refreshEnrollment() {
     }
   });
 
+  console.log('Enrollment: found ' + enrolled.length + ' enrolled sub(s): ' +
+    enrolled.map(function(s) { return s.displayName + ' (' + (s.active ? 'active' : 'paused') + ')'; }).join(', '));
+
   _enrollmentCache = enrolled;
   return _enrollmentCache;
 }
@@ -78,11 +83,13 @@ async function checkEnrollmentDetail(subId, token) {
   try {
     topicsData = await azureFetch(topicsUrl, token);
   } catch (err) {
-    console.error('Failed to list system topics for ' + subId + ':', err);
+    // Log but don't hide — common cause: EventGrid provider not registered or 403
+    console.warn('Enrollment check: cannot list system topics for ' + subId + ' (' + err.message + ')');
     return null;
   }
 
   var topics = (topicsData && topicsData.value) ? topicsData.value : [];
+  console.log('Enrollment check: ' + subId + ' has ' + topics.length + ' system topic(s)');
 
   var matchingTopic = null;
   for (var i = 0; i < topics.length; i++) {
@@ -94,7 +101,10 @@ async function checkEnrollmentDetail(subId, token) {
     }
   }
 
-  if (!matchingTopic) return null;
+  if (!matchingTopic) {
+    console.log('Enrollment check: no matching system topic for ' + subId);
+    return null;
+  }
 
   var topicId = matchingTopic.id;
   var rgMatch = topicId.match(/resourceGroups\/([^/]+)/i);
