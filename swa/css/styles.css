@@ -782,6 +782,20 @@ tbody tr:hover {
 }
 
 /* ------------------------------------------------------------
+   Info Banner
+   ------------------------------------------------------------ */
+.info-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  margin-bottom: 20px;
+}
+
+/* ------------------------------------------------------------
    Modal
    ------------------------------------------------------------ */
 .modal-overlay {

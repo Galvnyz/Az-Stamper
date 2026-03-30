@@ -38,8 +38,17 @@ function renderSimulateTab() {
   window._simResults = null;
 
   var config = getConfig();
-  var subs = config.subscriptions || {};
-  var subIds = Object.keys(subs);
+  var configSubs = config.subscriptions || {};
+  var enrolledSubs = _enrollmentCache || [];
+  var subIds = enrolledSubs.map(function(s) { return s.subscriptionId; });
+  if (subIds.length === 0) {
+    subIds = Object.keys(configSubs);
+  }
+  var subDisplayNames = {};
+  enrolledSubs.forEach(function(s) { subDisplayNames[s.subscriptionId] = s.displayName; });
+  Object.keys(configSubs).forEach(function(id) {
+    if (!subDisplayNames[id]) subDisplayNames[id] = configSubs[id].displayName || '';
+  });
 
   // ── Controls bar ──────────────────────────────────────────────────────────
   var bar = document.createElement('div');
@@ -76,7 +85,7 @@ function renderSimulateTab() {
   subIds.forEach(function(subId) {
     var opt = document.createElement('option');
     opt.value = subId;
-    var name = (subs[subId].displayName || '').trim();
+    var name = (subDisplayNames[subId] || '').trim();
     opt.textContent = name ? name + ' (' + subId + ')' : subId;
     selector.appendChild(opt);
   });
