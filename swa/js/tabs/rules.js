@@ -111,34 +111,10 @@ function renderRulesTab(selectedSubId) {
     return;
   }
 
-  // ── Prompt to select ─────────────────────────────────────────────────────
-  if (!selectedSubId) {
-    const empty = document.createElement('div');
-    empty.className = 'empty-state';
-
-    const icon = document.createElement('div');
-    icon.className = 'empty-state-icon';
-    icon.textContent = '👆';
-
-    const emptyTitle = document.createElement('div');
-    emptyTitle.className = 'empty-state-title';
-    emptyTitle.textContent = 'Select a subscription';
-
-    const emptyDesc = document.createElement('div');
-    emptyDesc.className = 'empty-state-desc';
-    emptyDesc.textContent = 'Choose a subscription from the dropdown above to view and edit its tag rules.';
-
-    empty.appendChild(icon);
-    empty.appendChild(emptyTitle);
-    empty.appendChild(emptyDesc);
-    panel.appendChild(empty);
-    return;
-  }
-
-  var hasCustomConfig = !!configSubs[selectedSubId];
+  var hasCustomConfig = selectedSubId && !!configSubs[selectedSubId];
 
   if (!hasCustomConfig) {
-    // Info banner
+    // Info banner — context-aware message
     var infoBanner = document.createElement('div');
     infoBanner.className = 'info-banner';
 
@@ -148,34 +124,43 @@ function renderRulesTab(selectedSubId) {
 
     var infoText = document.createElement('span');
     infoText.style.cssText = 'color:var(--info);font-size:0.8125rem;';
-    infoText.textContent = 'This subscription uses global defaults only \u2014 no custom overrides configured. ';
 
-    var addConfigLink = document.createElement('span');
-    addConfigLink.style.cssText = 'cursor:pointer;text-decoration:underline;';
-    addConfigLink.textContent = 'Add custom config';
-    addConfigLink.addEventListener('click', async function() {
-      var cfg = getConfig();
-      var enrolledSub = (_enrollmentCache || []).find(function(s) { return s.subscriptionId === selectedSubId; });
-      cfg.subscriptions[selectedSubId] = {
-        displayName: (enrolledSub && enrolledSub.displayName) || selectedSubId,
-        enabled: true,
-        tagOverrides: {},
-        resourceTypeRules: {},
-      };
-      var ok = await saveConfig(cfg);
-      if (ok) {
-        invalidateEnrollmentCache();
-        renderRulesTab(selectedSubId);
-      }
-    });
-    infoText.appendChild(addConfigLink);
+    if (!selectedSubId) {
+      infoText.textContent = 'These global defaults are applied to all enrolled subscriptions. Select a subscription above to add custom overrides.';
+    } else {
+      infoText.textContent = 'This subscription uses global defaults only \u2014 no custom overrides configured. ';
+
+      var addConfigLink = document.createElement('span');
+      addConfigLink.style.cssText = 'cursor:pointer;text-decoration:underline;';
+      addConfigLink.textContent = 'Add custom config';
+      addConfigLink.addEventListener('click', async function() {
+        var cfg = getConfig();
+        var enrolledSub = (_enrollmentCache || []).find(function(s) { return s.subscriptionId === selectedSubId; });
+        cfg.subscriptions[selectedSubId] = {
+          displayName: (enrolledSub && enrolledSub.displayName) || selectedSubId,
+          enabled: true,
+          tagOverrides: {},
+          resourceTypeRules: {},
+        };
+        var ok = await saveConfig(cfg);
+        if (ok) {
+          invalidateEnrollmentCache();
+          renderRulesTab(selectedSubId);
+        }
+      });
+      infoText.appendChild(addConfigLink);
+    }
 
     infoBanner.appendChild(infoIcon);
     infoBanner.appendChild(infoText);
     panel.appendChild(infoBanner);
 
     // Read-only global defaults
-    var globalSection = buildSection('Effective Tag Map', 'Read-only \u2014 global defaults applied to this subscription');
+    var sectionTitle = selectedSubId ? 'Effective Tag Map' : 'Global Default Tag Map';
+    var sectionDesc = selectedSubId
+      ? 'Read-only \u2014 global defaults applied to this subscription'
+      : 'These tags are applied to every resource write event across all enrolled subscriptions';
+    var globalSection = buildSection(sectionTitle, sectionDesc);
     var globalBody = globalSection.querySelector('.rules-section-body');
 
     var globalDefaults = [
