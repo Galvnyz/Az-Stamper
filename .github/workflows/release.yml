@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    name: Build and upload release assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build
+        run: dotnet build Az-Stamper.sln -c Release
+
+      - name: Test
+        run: dotnet test Az-Stamper.sln -c Release --no-build
+
+      - name: Publish
+        run: dotnet publish src/AzStamper.Functions/AzStamper.Functions.csproj -c Release --no-build -o ./publish
+
+      - name: Package function app
+        run: cd publish && zip -r ../az-stamper.zip .
+
+      - name: Install Bicep
+        run: az bicep install
+
+      - name: Compile deploy.bicep
+        run: az bicep build --file infra/deploy.bicep --outfile infra/deploy.json
+
+      - name: Upload release assets
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            az-stamper.zip \
+            infra/deploy.json \
+            --clobber
