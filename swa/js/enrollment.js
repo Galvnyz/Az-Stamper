@@ -2,6 +2,21 @@
 
 var _enrollmentCache = null;
 
+// Follows ARM API nextLink pagination and collects all items from value arrays
+async function fetchAllPages(url, token) {
+  var allItems = [];
+  var currentUrl = url;
+  var maxPages = 10; // safety limit
+  while (currentUrl && maxPages > 0) {
+    var data = await azureFetch(currentUrl, token);
+    var items = (data && data.value) ? data.value : [];
+    allItems = allItems.concat(items);
+    currentUrl = data && data.nextLink ? data.nextLink : null;
+    maxPages--;
+  }
+  return allItems;
+}
+
 // Returns cached enrollment data, or fetches fresh if not yet loaded
 async function discoverEnrollment() {
   if (_enrollmentCache !== null) {
@@ -79,37 +94,14 @@ async function checkEnrollmentDetail(subId, token) {
   var topicsUrl = 'https://management.azure.com/subscriptions/' + subId +
     '/providers/Microsoft.EventGrid/systemTopics?api-version=2022-06-15';
 
-  var topicsData;
+  var topics = [];
   try {
-    topicsData = await azureFetch(topicsUrl, token);
+    topics = await fetchAllPages(topicsUrl, token);
   } catch (err) {
-    // Log but don't hide — common cause: EventGrid provider not registered or 403
     console.warn('Enrollment check: cannot list system topics for ' + subId + ' (' + err.message + ')');
     return null;
   }
-
-  var topics = (topicsData && topicsData.value) ? topicsData.value : [];
-  console.log('Enrollment check: ' + subId + ' has ' + topics.length + ' system topic(s) (subscription-level)');
-
-  // If subscription-level list returned empty, try the known resource group as fallback.
-  // This handles cases where the user has RG-level Reader but not subscription-level.
-  if (topics.length === 0) {
-    var funcAppId = (window.AZ_STAMPER_CONFIG || {}).functionAppId || '';
-    var funcRgMatch = funcAppId.match(/resourceGroups\/([^/]+)/i);
-    if (funcRgMatch) {
-      var fallbackRg = funcRgMatch[1];
-      var rgTopicsUrl = 'https://management.azure.com/subscriptions/' + subId +
-        '/resourceGroups/' + fallbackRg +
-        '/providers/Microsoft.EventGrid/systemTopics?api-version=2022-06-15';
-      try {
-        var rgTopicsData = await azureFetch(rgTopicsUrl, token);
-        topics = (rgTopicsData && rgTopicsData.value) ? rgTopicsData.value : [];
-        console.log('Enrollment check: ' + subId + ' has ' + topics.length + ' system topic(s) (RG fallback: ' + fallbackRg + ')');
-      } catch (rgErr) {
-        console.warn('Enrollment check: RG fallback also failed for ' + subId + ' (' + rgErr.message + ')');
-      }
-    }
-  }
+  console.log('Enrollment check: ' + subId + ' has ' + topics.length + ' system topic(s)');
 
   var matchingTopic = null;
   for (var i = 0; i < topics.length; i++) {
