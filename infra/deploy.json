@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "13014338630675336809"
+      "templateHash": "9812919909172077100"
     }
   },
   "parameters": {
@@ -52,7 +52,7 @@
         "prod"
       ],
       "metadata": {
-        "description": "Environment tag value."
+        "description": "Environment tag value. Defaults to prod for self-service deployments (main.bicep defaults to dev for CI/CD)."
       }
     },
     "packageUrl": {
@@ -152,7 +152,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "286484889683566096"
+              "templateHash": "10713126596406450262"
             }
           },
           "parameters": {
@@ -474,7 +474,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.41.2.15936",
-                      "templateHash": "8348200470919587771"
+                      "templateHash": "16457686307877109005"
                     }
                   },
                   "parameters": {
@@ -557,108 +557,7 @@
                         },
                         "siteConfig": {
                           "minTlsVersion": "1.2",
-                          "appSettings": [
-                            {
-                              "name": "AzureWebJobsStorage__blobServiceUri",
-                              "value": "[format('https://{0}.blob.{1}', parameters('storageAccountName'), environment().suffixes.storage)]"
-                            },
-                            {
-                              "name": "AzureWebJobsStorage__queueServiceUri",
-                              "value": "[format('https://{0}.queue.{1}', parameters('storageAccountName'), environment().suffixes.storage)]"
-                            },
-                            {
-                              "name": "AzureWebJobsStorage__tableServiceUri",
-                              "value": "[format('https://{0}.table.{1}', parameters('storageAccountName'), environment().suffixes.storage)]"
-                            },
-                            {
-                              "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
-                              "value": "[parameters('appInsightsConnectionString')]"
-                            },
-                            {
-                              "name": "StamperConfig__TagMap__Creator__Value",
-                              "value": "{caller}"
-                            },
-                            {
-                              "name": "StamperConfig__TagMap__Creator__Overwrite",
-                              "value": "false"
-                            },
-                            {
-                              "name": "StamperConfig__TagMap__CreatedOn__Value",
-                              "value": "{timestamp}"
-                            },
-                            {
-                              "name": "StamperConfig__TagMap__CreatedOn__Overwrite",
-                              "value": "false"
-                            },
-                            {
-                              "name": "StamperConfig__TagMap__LastModifiedBy__Value",
-                              "value": "{caller}"
-                            },
-                            {
-                              "name": "StamperConfig__TagMap__LastModifiedBy__Overwrite",
-                              "value": "true"
-                            },
-                            {
-                              "name": "StamperConfig__TagMap__LastModifiedOn__Value",
-                              "value": "{timestamp}"
-                            },
-                            {
-                              "name": "StamperConfig__TagMap__LastModifiedOn__Overwrite",
-                              "value": "true"
-                            },
-                            {
-                              "name": "StamperConfig__TagMap__StampedBy__Value",
-                              "value": "Az-Stamper"
-                            },
-                            {
-                              "name": "StamperConfig__TagMap__StampedBy__Overwrite",
-                              "value": "false"
-                            },
-                            {
-                              "name": "StamperConfig__IgnorePatterns__0",
-                              "value": "Microsoft.Resources/deployments"
-                            },
-                            {
-                              "name": "StamperConfig__IgnorePatterns__1",
-                              "value": "Microsoft.Resources/tags"
-                            },
-                            {
-                              "name": "StamperConfig__IgnorePatterns__2",
-                              "value": "Microsoft.Network/frontdoor"
-                            },
-                            {
-                              "name": "StamperConfig__IgnorePatterns__3",
-                              "value": "Microsoft.Authorization/"
-                            },
-                            {
-                              "name": "StamperConfig__IgnorePatterns__4",
-                              "value": "Microsoft.Resources/subscriptions"
-                            },
-                            {
-                              "name": "StamperConfig__IgnorePatterns__5",
-                              "value": "Microsoft.ClassicCompute/"
-                            },
-                            {
-                              "name": "StamperConfig__IgnorePatterns__6",
-                              "value": "Microsoft.Insights/diagnosticSettings"
-                            },
-                            {
-                              "name": "StamperConfig__IgnorePatterns__7",
-                              "value": "Microsoft.Security/"
-                            },
-                            {
-                              "name": "StamperConfig__IgnorePatterns__8",
-                              "value": "Microsoft.EventGrid/"
-                            },
-                            {
-                              "name": "StamperConfig__ConfigBlobUri",
-                              "value": "[format('https://{0}.blob.{1}/config/stamper.json', parameters('storageAccountName'), environment().suffixes.storage)]"
-                            },
-                            {
-                              "name": "WEBSITE_RUN_FROM_PACKAGE",
-                              "value": "[parameters('packageUrl')]"
-                            }
-                          ]
+                          "appSettings": "[concat(createArray(createObject('name', 'AzureWebJobsStorage__blobServiceUri', 'value', format('https://{0}.blob.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'AzureWebJobsStorage__queueServiceUri', 'value', format('https://{0}.queue.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'AzureWebJobsStorage__tableServiceUri', 'value', format('https://{0}.table.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'value', parameters('appInsightsConnectionString')), createObject('name', 'StamperConfig__TagMap__Creator__Value', 'value', '{caller}'), createObject('name', 'StamperConfig__TagMap__Creator__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__TagMap__CreatedOn__Value', 'value', '{timestamp}'), createObject('name', 'StamperConfig__TagMap__CreatedOn__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__TagMap__LastModifiedBy__Value', 'value', '{caller}'), createObject('name', 'StamperConfig__TagMap__LastModifiedBy__Overwrite', 'value', 'true'), createObject('name', 'StamperConfig__TagMap__LastModifiedOn__Value', 'value', '{timestamp}'), createObject('name', 'StamperConfig__TagMap__LastModifiedOn__Overwrite', 'value', 'true'), createObject('name', 'StamperConfig__TagMap__StampedBy__Value', 'value', 'Az-Stamper'), createObject('name', 'StamperConfig__TagMap__StampedBy__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__IgnorePatterns__0', 'value', 'Microsoft.Resources/deployments'), createObject('name', 'StamperConfig__IgnorePatterns__1', 'value', 'Microsoft.Resources/tags'), createObject('name', 'StamperConfig__IgnorePatterns__2', 'value', 'Microsoft.Network/frontdoor'), createObject('name', 'StamperConfig__IgnorePatterns__3', 'value', 'Microsoft.Authorization/'), createObject('name', 'StamperConfig__IgnorePatterns__4', 'value', 'Microsoft.Resources/subscriptions'), createObject('name', 'StamperConfig__IgnorePatterns__5', 'value', 'Microsoft.ClassicCompute/'), createObject('name', 'StamperConfig__IgnorePatterns__6', 'value', 'Microsoft.Insights/diagnosticSettings'), createObject('name', 'StamperConfig__IgnorePatterns__7', 'value', 'Microsoft.Security/'), createObject('name', 'StamperConfig__IgnorePatterns__8', 'value', 'Microsoft.EventGrid/'), createObject('name', 'StamperConfig__ConfigBlobUri', 'value', format('https://{0}.blob.{1}/config/stamper.json', parameters('storageAccountName'), environment().suffixes.storage))), if(not(equals(parameters('packageUrl'), '')), createArray(createObject('name', 'WEBSITE_RUN_FROM_PACKAGE', 'value', parameters('packageUrl'))), createArray()))]"
                         }
                       },
                       "dependsOn": [

@@ -55,7 +55,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
     }
     siteConfig: {
       minTlsVersion: '1.2'
-      appSettings: [
+      appSettings: concat([
         {
           name: 'AzureWebJobsStorage__blobServiceUri'
           value: 'https://${storageAccountName}.blob.${environment().suffixes.storage}'
@@ -152,11 +152,12 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
           name: 'StamperConfig__ConfigBlobUri'
           value: 'https://${storageAccountName}.blob.${environment().suffixes.storage}/config/stamper.json'
         }
+      ], packageUrl != '' ? [
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
           value: packageUrl
         }
-      ]
+      ] : [])
     }
   }
 }

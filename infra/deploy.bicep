@@ -17,7 +17,7 @@ param functionAppName string = 'func-az-stamper'
 @description('Name for the Application Insights instance.')
 param appInsightsName string = 'ai-az-stamper'
 
-@description('Environment tag value.')
+@description('Environment tag value. Defaults to prod for self-service deployments (main.bicep defaults to dev for CI/CD).')
 @allowed(['dev', 'prod'])
 param environment string = 'prod'
 

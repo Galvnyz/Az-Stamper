@@ -136,6 +136,13 @@ This deploys the complete Az-Stamper solution to your Azure subscription:
 
 **After deployment**, resources begin tagging automatically within minutes. To enroll additional subscriptions, see [Multi-Subscription Enrollment](#multi-subscription-enrollment).
 
+**Optional post-deploy step** — set the function's own identity to prevent self-tagging (defense-in-depth; Event Grid filters already prevent recursive loops):
+
+```bash
+PRINCIPAL_ID=$(az functionapp identity show --name <your-function-app> --resource-group <your-rg> --query principalId -o tsv)
+az functionapp config appsettings set --name <your-function-app> --resource-group <your-rg> --settings "StamperConfig__SelfPrincipalId=$PRINCIPAL_ID"
+```
+
 ---
 
 ### Developer Setup (CI/CD)
