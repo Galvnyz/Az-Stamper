@@ -51,12 +51,18 @@ jobs:
       - name: Deploy infrastructure
         id: infra
         run: |
-          result=$(az deployment group create \
+          outputs=$(az deployment group create \
             --resource-group ${{ vars.RESOURCE_GROUP }} \
             --template-file infra/main.bicep \
             --parameters infra/parameters/${{ inputs.environment }}.bicepparam \
-            --query 'properties.outputs.principalId.value' -o tsv)
-          echo "principalId=$result" >> "$GITHUB_OUTPUT"
+            --query 'properties.outputs' -o json)
+          echo "principalId=$(echo $outputs | jq -r '.principalId.value')" >> "$GITHUB_OUTPUT"
+          echo "functionAppId=$(echo $outputs | jq -r '.functionAppId.value')" >> "$GITHUB_OUTPUT"
+          echo "functionAppName=$(echo $outputs | jq -r '.functionAppName.value')" >> "$GITHUB_OUTPUT"
+          echo "swaHostname=$(echo $outputs | jq -r '.swaHostname.value')" >> "$GITHUB_OUTPUT"
+          echo "appInsightsId=$(echo $outputs | jq -r '.appInsightsId.value')" >> "$GITHUB_OUTPUT"
+          echo "storageAccountName=$(echo $outputs | jq -r '.storageAccountName.value')" >> "$GITHUB_OUTPUT"
+          echo "swaName=$(echo $outputs | jq -r '.swaName.value')" >> "$GITHUB_OUTPUT"
 
       - name: Set SelfPrincipalId app setting
         run: |
@@ -64,6 +70,16 @@ jobs:
             --resource-group ${{ vars.RESOURCE_GROUP }} \
             --name ${{ vars.FUNCTION_APP_NAME }} \
             --settings "StamperConfig__SelfPrincipalId=${{ steps.infra.outputs.principalId }}"
+
+      - name: Deploy Event Grid and subscription RBAC
+        run: |
+          az deployment sub create \
+            --location ${{ vars.LOCATION }} \
+            --template-file infra/main.sub.bicep \
+            --parameters \
+              functionAppId='${{ steps.infra.outputs.functionAppId }}' \
+              functionAppPrincipalId='${{ steps.infra.outputs.principalId }}' \
+              resourceGroupName='${{ vars.RESOURCE_GROUP }}'
 
       - name: Deploy function code
         run: |
