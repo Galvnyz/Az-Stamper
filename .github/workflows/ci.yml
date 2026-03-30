@@ -62,3 +62,4 @@ jobs:
         run: |
           az bicep build --file infra/main.bicep
           az bicep build --file infra/main.sub.bicep
+          az bicep build --file infra/deploy.bicep
