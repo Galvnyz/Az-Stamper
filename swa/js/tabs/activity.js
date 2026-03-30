@@ -1,6 +1,6 @@
 // Activity Tab — recent tagging events from Application Insights
 
-var _activityTimeRange = 'P1D';
+var _activityTimeRange = '1d';
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
@@ -45,9 +45,9 @@ function renderActivityControls() {
   rangeSelect.style.cssText = 'width:auto;padding:6px 10px;font-size:0.875rem;';
 
   var rangeOptions = [
-    { value: 'PT1H', label: 'Last 1 hour' },
-    { value: 'P1D',  label: 'Last 24 hours' },
-    { value: 'P7D',  label: 'Last 7 days' },
+    { value: '1h',  label: 'Last 1 hour' },
+    { value: '1d',  label: 'Last 24 hours' },
+    { value: '7d',  label: 'Last 7 days' },
   ];
 
   rangeOptions.forEach(function(opt) {
