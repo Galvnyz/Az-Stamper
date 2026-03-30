@@ -979,6 +979,36 @@ tbody tr:hover {
 .gap-16       { gap: 16px; }
 
 /* ------------------------------------------------------------
+   Inline Editor (expands below card in grid)
+   ------------------------------------------------------------ */
+.inline-editor {
+  grid-column: 1 / -1;
+  display: none;
+  background: var(--bg-card);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-top: -8px;
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.15);
+}
+
+.inline-editor.open {
+  display: block;
+  animation: slideDown 150ms ease;
+}
+
+.card.expanded {
+  border-color: var(--accent);
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.2);
+  margin-bottom: 0;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ------------------------------------------------------------
    Responsive — 768px breakpoint
    ------------------------------------------------------------ */
 @media (max-width: 768px) {
