@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AzStamper.Core.Models;
 using AzStamper.Core.Services;
 using Microsoft.Extensions.Logging;
@@ -167,8 +168,9 @@ public class StampOrchestrator
         if (success)
         {
             _logger.LogInformation(
-                "Stamped {Count} tag(s) on {ResourceId} [Sub:{SubscriptionId}, Type:{ResourceType}, Config:{ConfigSource}]",
-                tagsToApply.Count, evt.ResourceId, subscriptionId, resourceType, ruleSet.ConfigSource);
+                "Stamped {Count} tag(s) on {ResourceId} [Sub:{SubscriptionId}, Type:{ResourceType}, Config:{ConfigSource}] Tags:{AppliedTags}",
+                tagsToApply.Count, evt.ResourceId, subscriptionId, resourceType, ruleSet.ConfigSource,
+                JsonSerializer.Serialize(tagsToApply));
         }
         else
         {
