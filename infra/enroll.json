@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "532941881090900413"
+      "templateHash": "9998097337827983947"
     }
   },
   "parameters": {
@@ -61,7 +61,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "18302501560359916066"
+              "templateHash": "6090549278719109117"
             }
           },
           "parameters": {
@@ -98,9 +98,9 @@
               "properties": {
                 "azCliVersion": "2.63.0",
                 "retentionInterval": "PT1H",
-                "timeout": "PT10M",
+                "timeout": "PT15M",
                 "cleanupPreference": "OnSuccess",
-                "scriptContent": "      echo \"Waiting for function app to finish loading from package...\"\n      for i in $(seq 1 30); do\n        status=$(curl -s -o /dev/null -w \"%{http_code}\" \"https://${FUNCTION_APP_NAME}.azurewebsites.net/\" --max-time 10 2>/dev/null)\n        if [ \"$status\" = \"200\" ] || [ \"$status\" = \"401\" ] || [ \"$status\" = \"404\" ]; then\n          echo \"Function host is responding (HTTP $status, attempt $i)\"\n          echo \"Waiting 30s for functions to finish registering...\"\n          sleep 30\n          echo \"Ready\"\n          exit 0\n        fi\n        echo \"Attempt $i/30: HTTP $status (not ready), waiting 20s...\"\n        sleep 20\n      done\n      echo \"ERROR: Function app did not become ready within 10 minutes\"\n      exit 1\n    ",
+                "scriptContent": "      echo \"Waiting for function app to finish loading from package...\"\n      for i in $(seq 1 40); do\n        status=$(curl -s -o /dev/null -w \"%{http_code}\" \"https://${FUNCTION_APP_NAME}.azurewebsites.net/\" --max-time 10 2>/dev/null)\n        if [ \"$status\" = \"200\" ] || [ \"$status\" = \"401\" ] || [ \"$status\" = \"404\" ]; then\n          echo \"Function host is responding (HTTP $status, attempt $i)\"\n          echo \"Waiting 30s for functions to finish registering...\"\n          sleep 30\n          echo \"Ready\"\n          exit 0\n        fi\n        echo \"Attempt $i/40: HTTP $status (not ready), waiting 20s...\"\n        sleep 20\n      done\n      echo \"ERROR: Function app did not become ready within 15 minutes\"\n      exit 1\n    ",
                 "environmentVariables": [
                   {
                     "name": "FUNCTION_APP_NAME",
