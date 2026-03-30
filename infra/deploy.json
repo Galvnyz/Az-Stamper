@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "10015515039859970592"
+      "templateHash": "5416064466640699499"
     }
   },
   "parameters": {
@@ -97,6 +97,9 @@
           },
           "environment": {
             "value": "[parameters('environment')]"
+          },
+          "packageUrl": {
+            "value": "[parameters('packageUrl')]"
           }
         },
         "template": {
@@ -106,7 +109,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "603885206007492617"
+              "templateHash": "4948122144119748193"
             }
           },
           "parameters": {
@@ -138,6 +141,13 @@
             "workbookName": {
               "type": "string",
               "defaultValue": "Az-Stamper Activity Dashboard"
+            },
+            "packageUrl": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "URL of the function app deployment package. Leave empty for CI/CD zip-push deployment."
+              }
             },
             "tags": {
               "type": "object",
@@ -204,7 +214,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.41.2.15936",
-                      "templateHash": "8125094186110672705"
+                      "templateHash": "11669557765608801296"
                     }
                   },
                   "parameters": {
@@ -216,10 +226,6 @@
                     },
                     "tags": {
                       "type": "object"
-                    },
-                    "deploymentContainerName": {
-                      "type": "string",
-                      "defaultValue": "deployments"
                     }
                   },
                   "resources": [
@@ -250,14 +256,6 @@
                     {
                       "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
                       "apiVersion": "2023-05-01",
-                      "name": "[format('{0}/{1}/{2}', parameters('name'), 'default', parameters('deploymentContainerName'))]",
-                      "dependsOn": [
-                        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('name'), 'default')]"
-                      ]
-                    },
-                    {
-                      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
-                      "apiVersion": "2023-05-01",
                       "name": "[format('{0}/{1}/{2}', parameters('name'), 'default', 'config')]",
                       "dependsOn": [
                         "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('name'), 'default')]"
@@ -272,14 +270,6 @@
                     "storageAccountId": {
                       "type": "string",
                       "value": "[resourceId('Microsoft.Storage/storageAccounts', parameters('name'))]"
-                    },
-                    "primaryBlobEndpoint": {
-                      "type": "string",
-                      "value": "[reference(resourceId('Microsoft.Storage/storageAccounts', parameters('name')), '2023-05-01').primaryEndpoints.blob]"
-                    },
-                    "deploymentContainerName": {
-                      "type": "string",
-                      "value": "[parameters('deploymentContainerName')]"
                     },
                     "configContainerName": {
                       "type": "string",
@@ -401,14 +391,11 @@
                   "storageAccountName": {
                     "value": "[parameters('storageAccountName')]"
                   },
-                  "storageBlobEndpoint": {
-                    "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage'), '2025-04-01').outputs.primaryBlobEndpoint.value]"
-                  },
-                  "deploymentContainerName": {
-                    "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage'), '2025-04-01').outputs.deploymentContainerName.value]"
-                  },
                   "appInsightsConnectionString": {
                     "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.appInsightsConnectionString.value]"
+                  },
+                  "packageUrl": {
+                    "value": "[parameters('packageUrl')]"
                   }
                 },
                 "template": {
@@ -418,7 +405,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.41.2.15936",
-                      "templateHash": "8204584546440750088"
+                      "templateHash": "12818644373940051961"
                     }
                   },
                   "parameters": {
@@ -434,14 +421,15 @@
                     "storageAccountName": {
                       "type": "string"
                     },
-                    "storageBlobEndpoint": {
-                      "type": "string"
-                    },
-                    "deploymentContainerName": {
-                      "type": "string"
-                    },
                     "appInsightsConnectionString": {
                       "type": "string"
+                    },
+                    "packageUrl": {
+                      "type": "string",
+                      "defaultValue": "",
+                      "metadata": {
+                        "description": "URL of the function app deployment package. Used by Deploy-to-Azure button."
+                      }
                     }
                   },
                   "resources": [
@@ -451,10 +439,10 @@
                       "name": "[format('{0}-plan', parameters('name'))]",
                       "location": "[parameters('location')]",
                       "tags": "[parameters('tags')]",
-                      "kind": "functionapp",
+                      "kind": "linux",
                       "sku": {
-                        "tier": "FlexConsumption",
-                        "name": "FC1"
+                        "name": "Y1",
+                        "tier": "Dynamic"
                       },
                       "properties": {
                         "reserved": true
@@ -473,28 +461,10 @@
                       "properties": {
                         "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', format('{0}-plan', parameters('name')))]",
                         "httpsOnly": true,
-                        "functionAppConfig": {
-                          "deployment": {
-                            "storage": {
-                              "type": "blobContainer",
-                              "value": "[format('{0}{1}', parameters('storageBlobEndpoint'), parameters('deploymentContainerName'))]",
-                              "authentication": {
-                                "type": "SystemAssignedIdentity"
-                              }
-                            }
-                          },
-                          "scaleAndConcurrency": {
-                            "maximumInstanceCount": 100,
-                            "instanceMemoryMB": 2048
-                          },
-                          "runtime": {
-                            "name": "dotnet-isolated",
-                            "version": "8.0"
-                          }
-                        },
                         "siteConfig": {
+                          "linuxFxVersion": "DOTNET-ISOLATED|8.0",
                           "minTlsVersion": "1.2",
-                          "appSettings": "[concat(createArray(createObject('name', 'AzureWebJobsStorage__blobServiceUri', 'value', format('https://{0}.blob.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'AzureWebJobsStorage__queueServiceUri', 'value', format('https://{0}.queue.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'AzureWebJobsStorage__tableServiceUri', 'value', format('https://{0}.table.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'value', parameters('appInsightsConnectionString')), createObject('name', 'StamperConfig__TagMap__Creator__Value', 'value', '{caller}'), createObject('name', 'StamperConfig__TagMap__Creator__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__TagMap__CreatedOn__Value', 'value', '{timestamp}'), createObject('name', 'StamperConfig__TagMap__CreatedOn__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__TagMap__LastModifiedBy__Value', 'value', '{caller}'), createObject('name', 'StamperConfig__TagMap__LastModifiedBy__Overwrite', 'value', 'true'), createObject('name', 'StamperConfig__TagMap__LastModifiedOn__Value', 'value', '{timestamp}'), createObject('name', 'StamperConfig__TagMap__LastModifiedOn__Overwrite', 'value', 'true'), createObject('name', 'StamperConfig__TagMap__StampedBy__Value', 'value', 'Az-Stamper'), createObject('name', 'StamperConfig__TagMap__StampedBy__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__IgnorePatterns__0', 'value', 'Microsoft.Resources/deployments'), createObject('name', 'StamperConfig__IgnorePatterns__1', 'value', 'Microsoft.Resources/tags'), createObject('name', 'StamperConfig__IgnorePatterns__2', 'value', 'Microsoft.Network/frontdoor'), createObject('name', 'StamperConfig__IgnorePatterns__3', 'value', 'Microsoft.Authorization/'), createObject('name', 'StamperConfig__IgnorePatterns__4', 'value', 'Microsoft.Resources/subscriptions'), createObject('name', 'StamperConfig__IgnorePatterns__5', 'value', 'Microsoft.ClassicCompute/'), createObject('name', 'StamperConfig__IgnorePatterns__6', 'value', 'Microsoft.Insights/diagnosticSettings'), createObject('name', 'StamperConfig__IgnorePatterns__7', 'value', 'Microsoft.Security/'), createObject('name', 'StamperConfig__IgnorePatterns__8', 'value', 'Microsoft.EventGrid/'), createObject('name', 'StamperConfig__ConfigBlobUri', 'value', format('https://{0}.blob.{1}/config/stamper.json', parameters('storageAccountName'), environment().suffixes.storage))))]"
+                          "appSettings": "[concat(createArray(createObject('name', 'FUNCTIONS_EXTENSION_VERSION', 'value', '~4'), createObject('name', 'FUNCTIONS_WORKER_RUNTIME', 'value', 'dotnet-isolated'), createObject('name', 'AzureWebJobsStorage__blobServiceUri', 'value', format('https://{0}.blob.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'AzureWebJobsStorage__queueServiceUri', 'value', format('https://{0}.queue.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'AzureWebJobsStorage__tableServiceUri', 'value', format('https://{0}.table.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'value', parameters('appInsightsConnectionString')), createObject('name', 'StamperConfig__TagMap__Creator__Value', 'value', '{caller}'), createObject('name', 'StamperConfig__TagMap__Creator__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__TagMap__CreatedOn__Value', 'value', '{timestamp}'), createObject('name', 'StamperConfig__TagMap__CreatedOn__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__TagMap__LastModifiedBy__Value', 'value', '{caller}'), createObject('name', 'StamperConfig__TagMap__LastModifiedBy__Overwrite', 'value', 'true'), createObject('name', 'StamperConfig__TagMap__LastModifiedOn__Value', 'value', '{timestamp}'), createObject('name', 'StamperConfig__TagMap__LastModifiedOn__Overwrite', 'value', 'true'), createObject('name', 'StamperConfig__TagMap__StampedBy__Value', 'value', 'Az-Stamper'), createObject('name', 'StamperConfig__TagMap__StampedBy__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__IgnorePatterns__0', 'value', 'Microsoft.Resources/deployments'), createObject('name', 'StamperConfig__IgnorePatterns__1', 'value', 'Microsoft.Resources/tags'), createObject('name', 'StamperConfig__IgnorePatterns__2', 'value', 'Microsoft.Network/frontdoor'), createObject('name', 'StamperConfig__IgnorePatterns__3', 'value', 'Microsoft.Authorization/'), createObject('name', 'StamperConfig__IgnorePatterns__4', 'value', 'Microsoft.Resources/subscriptions'), createObject('name', 'StamperConfig__IgnorePatterns__5', 'value', 'Microsoft.ClassicCompute/'), createObject('name', 'StamperConfig__IgnorePatterns__6', 'value', 'Microsoft.Insights/diagnosticSettings'), createObject('name', 'StamperConfig__IgnorePatterns__7', 'value', 'Microsoft.Security/'), createObject('name', 'StamperConfig__IgnorePatterns__8', 'value', 'Microsoft.EventGrid/'), createObject('name', 'StamperConfig__ConfigBlobUri', 'value', format('https://{0}.blob.{1}/config/stamper.json', parameters('storageAccountName'), environment().suffixes.storage))), if(not(equals(parameters('packageUrl'), '')), createArray(createObject('name', 'WEBSITE_RUN_FROM_PACKAGE', 'value', parameters('packageUrl'))), createArray()))]"
                         }
                       },
                       "dependsOn": [
@@ -519,8 +489,7 @@
                 }
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Resources/deployments', 'monitoring')]",
-                "[resourceId('Microsoft.Resources/deployments', 'storage')]"
+                "[resourceId('Microsoft.Resources/deployments', 'monitoring')]"
               ]
             },
             {
@@ -724,131 +693,6 @@
         }
       },
       "dependsOn": [
-        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
-      ]
-    },
-    {
-      "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2025-04-01",
-      "name": "packageDeploy",
-      "resourceGroup": "[parameters('resourceGroupName')]",
-      "properties": {
-        "expressionEvaluationOptions": {
-          "scope": "inner"
-        },
-        "mode": "Incremental",
-        "parameters": {
-          "functionAppName": {
-            "value": "[parameters('functionAppName')]"
-          },
-          "resourceGroupName": {
-            "value": "[parameters('resourceGroupName')]"
-          },
-          "packageUrl": {
-            "value": "[parameters('packageUrl')]"
-          }
-        },
-        "template": {
-          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-          "contentVersion": "1.0.0.0",
-          "metadata": {
-            "_generator": {
-              "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "3710643884555613863"
-            }
-          },
-          "parameters": {
-            "functionAppName": {
-              "type": "string",
-              "metadata": {
-                "description": "Name of the function app to deploy to."
-              }
-            },
-            "resourceGroupName": {
-              "type": "string",
-              "metadata": {
-                "description": "Resource group containing the function app."
-              }
-            },
-            "packageUrl": {
-              "type": "string",
-              "metadata": {
-                "description": "URL of the deployment package zip."
-              }
-            },
-            "location": {
-              "type": "string",
-              "defaultValue": "[resourceGroup().location]"
-            }
-          },
-          "resources": [
-            {
-              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-              "apiVersion": "2023-01-31",
-              "name": "[format('{0}-deploy-id', parameters('functionAppName'))]",
-              "location": "[parameters('location')]"
-            },
-            {
-              "type": "Microsoft.Authorization/roleAssignments",
-              "apiVersion": "2022-04-01",
-              "name": "[guid(resourceGroup().id, resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-deploy-id', parameters('functionAppName'))), 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
-              "properties": {
-                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
-                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-deploy-id', parameters('functionAppName'))), '2023-01-31').principalId]",
-                "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-deploy-id', parameters('functionAppName')))]"
-              ]
-            },
-            {
-              "type": "Microsoft.Resources/deploymentScripts",
-              "apiVersion": "2023-08-01",
-              "name": "[format('{0}-package-deploy', parameters('functionAppName'))]",
-              "location": "[parameters('location')]",
-              "kind": "AzureCLI",
-              "identity": {
-                "type": "UserAssigned",
-                "userAssignedIdentities": {
-                  "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-deploy-id', parameters('functionAppName'))))]": {}
-                }
-              },
-              "properties": {
-                "azCliVersion": "2.63.0",
-                "retentionInterval": "PT1H",
-                "timeout": "PT15M",
-                "cleanupPreference": "OnSuccess",
-                "scriptContent": "      set -e\n      echo \"========================================\"\n      echo \"Az-Stamper Package Deploy\"\n      echo \"Function App: $FUNCTION_APP_NAME\"\n      echo \"Resource Group: $RESOURCE_GROUP_NAME\"\n      echo \"Package URL: $PACKAGE_URL\"\n      echo \"Started: $(date -u +%Y-%m-%dT%H:%M:%SZ)\"\n      echo \"========================================\"\n\n      echo \"\"\n      echo \"[1/4] Waiting 60s for RBAC propagation...\"\n      for i in $(seq 1 6); do\n        echo \"  ...${i}0s\"\n        sleep 10\n      done\n      echo \"[1/4] RBAC wait complete\"\n\n      echo \"\"\n      echo \"[2/4] Downloading package...\"\n      curl -sL -o /tmp/deploy.zip \"$PACKAGE_URL\"\n      size=$(stat -c%s /tmp/deploy.zip 2>/dev/null || echo \"unknown\")\n      echo \"[2/4] Downloaded $size bytes\"\n\n      echo \"\"\n      echo \"[3/4] Deploying via Kudu zip deploy API...\"\n      token=$(az account get-access-token --resource \"$MGMT_ENDPOINT\" --query accessToken -o tsv)\n      echo \"[3/4] Got access token, POSTing to Kudu...\"\n      response=$(curl -s -w \"\\n%{http_code}\" -X POST \\\n        \"https://${FUNCTION_APP_NAME}.scm.azurewebsites.net/api/zipdeploy\" \\\n        -H \"Authorization: Bearer $token\" \\\n        -H \"Content-Type: application/zip\" \\\n        --data-binary @/tmp/deploy.zip \\\n        --max-time 300)\n      http_code=$(echo \"$response\" | tail -1)\n      body=$(echo \"$response\" | head -n -1)\n      echo \"[3/4] Kudu returned HTTP $http_code\"\n\n      if [ \"$http_code\" != \"200\" ] && [ \"$http_code\" != \"202\" ]; then\n        echo \"[3/4] Kudu failed (response: $body)\"\n        echo \"[3/4] Falling back to az functionapp deploy...\"\n        az functionapp deploy \\\n          --name \"$FUNCTION_APP_NAME\" \\\n          --resource-group \"$RESOURCE_GROUP_NAME\" \\\n          --src-path /tmp/deploy.zip \\\n          --type zip\n        echo \"[3/4] az functionapp deploy completed\"\n      else\n        echo \"[3/4] Kudu deploy succeeded\"\n      fi\n\n      echo \"\"\n      echo \"[4/4] Waiting for ResourceStamper to register...\"\n      for i in $(seq 1 40); do\n        funcs=$(az functionapp function list \\\n          --name \"$FUNCTION_APP_NAME\" \\\n          --resource-group \"$RESOURCE_GROUP_NAME\" \\\n          --query \"[?name=='ResourceStamper'].name\" -o tsv 2>/dev/null)\n        if [ \"$funcs\" = \"ResourceStamper\" ]; then\n          echo \"[4/4] ResourceStamper is ready! (attempt $i)\"\n          echo \"\"\n          echo \"========================================\"\n          echo \"Deploy complete: $(date -u +%Y-%m-%dT%H:%M:%SZ)\"\n          echo \"========================================\"\n          exit 0\n        fi\n        echo \"  Attempt $i/40: not ready, waiting 20s...\"\n        sleep 20\n      done\n      echo \"[4/4] WARNING: ResourceStamper not detected within timeout\"\n      echo \"  The function may need a manual restart\"\n      exit 0\n    ",
-                "environmentVariables": [
-                  {
-                    "name": "FUNCTION_APP_NAME",
-                    "value": "[parameters('functionAppName')]"
-                  },
-                  {
-                    "name": "RESOURCE_GROUP_NAME",
-                    "value": "[parameters('resourceGroupName')]"
-                  },
-                  {
-                    "name": "PACKAGE_URL",
-                    "value": "[parameters('packageUrl')]"
-                  },
-                  {
-                    "name": "MGMT_ENDPOINT",
-                    "value": "[environment().resourceManager]"
-                  }
-                ]
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.Authorization/roleAssignments', guid(resourceGroup().id, resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-deploy-id', parameters('functionAppName'))), 'b24988ac-6180-42a0-ab88-20f7382dd24c'))]",
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-deploy-id', parameters('functionAppName')))]"
-              ]
-            }
-          ]
-        }
-      },
-      "dependsOn": [
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'hub')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
       ]
     },

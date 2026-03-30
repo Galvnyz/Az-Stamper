@@ -2,19 +2,19 @@ param name string
 param location string
 param tags object
 param storageAccountName string
-param storageBlobEndpoint string
-param deploymentContainerName string
 param appInsightsConnectionString string
+@description('URL of the function app deployment package. Used by Deploy-to-Azure button.')
+param packageUrl string = ''
 // StamperConfig uses __ delimited app settings for IOptions<T> binding
 
-resource flexPlan 'Microsoft.Web/serverfarms@2023-12-01' = {
+resource consumptionPlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: '${name}-plan'
   location: location
   tags: tags
-  kind: 'functionapp'
+  kind: 'linux'
   sku: {
-    tier: 'FlexConsumption'
-    name: 'FC1'
+    name: 'Y1'
+    tier: 'Dynamic'
   }
   properties: {
     reserved: true
@@ -30,30 +30,20 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
     type: 'SystemAssigned'
   }
   properties: {
-    serverFarmId: flexPlan.id
+    serverFarmId: consumptionPlan.id
     httpsOnly: true
-    functionAppConfig: {
-      deployment: {
-        storage: {
-          type: 'blobContainer'
-          value: '${storageBlobEndpoint}${deploymentContainerName}'
-          authentication: {
-            type: 'SystemAssignedIdentity'
-          }
-        }
-      }
-      scaleAndConcurrency: {
-        maximumInstanceCount: 100
-        instanceMemoryMB: 2048
-      }
-      runtime: {
-        name: 'dotnet-isolated'
-        version: '8.0'
-      }
-    }
     siteConfig: {
+      linuxFxVersion: 'DOTNET-ISOLATED|8.0'
       minTlsVersion: '1.2'
       appSettings: concat([
+        {
+          name: 'FUNCTIONS_EXTENSION_VERSION'
+          value: '~4'
+        }
+        {
+          name: 'FUNCTIONS_WORKER_RUNTIME'
+          value: 'dotnet-isolated'
+        }
         {
           name: 'AzureWebJobsStorage__blobServiceUri'
           value: 'https://${storageAccountName}.blob.${environment().suffixes.storage}'
@@ -150,7 +140,12 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
           name: 'StamperConfig__ConfigBlobUri'
           value: 'https://${storageAccountName}.blob.${environment().suffixes.storage}/config/stamper.json'
         }
-      ])
+      ], packageUrl != '' ? [
+        {
+          name: 'WEBSITE_RUN_FROM_PACKAGE'
+          value: packageUrl
+        }
+      ] : [])
     }
   }
 }

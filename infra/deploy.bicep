@@ -44,24 +44,11 @@ module hub 'main.bicep' = {
     functionAppName: functionAppName
     appInsightsName: appInsightsName
     environment: environment
-  }
-}
-
-// 3. Deploy function code from package URL to blob storage
-//    Flex Consumption ignores WEBSITE_RUN_FROM_PACKAGE — code must be
-//    deployed via az functionapp deployment source config-zip
-module packageDeploy 'modules/packageDeploy.bicep' = {
-  name: 'packageDeploy'
-  scope: rg
-  params: {
-    functionAppName: functionAppName
-    resourceGroupName: resourceGroupName
     packageUrl: packageUrl
   }
-  dependsOn: [hub]
 }
 
-// 4. Subscription-scoped RBAC — Reader + Tag Contributor
+// 3. Subscription-scoped RBAC — Reader + Tag Contributor
 //    Uses principalId in guid seed so delete-RG-and-redeploy works
 module subscriptionRbac 'modules/subscriptionRbac.bicep' = {
   name: 'subscriptionRbac'
