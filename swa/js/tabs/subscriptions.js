@@ -55,7 +55,7 @@ function renderSubscriptionsTab(enrolled) {
 
   var bannerDesc = document.createElement('span');
   bannerDesc.style.cssText = 'color:var(--text-secondary);font-size:0.875rem;margin-left:8px;';
-  bannerDesc.textContent = 'Applied to all enrolled subscriptions: CreatedBy, CreatedDate, CreatedByObjectId, Environment, ManagedBy.';
+  bannerDesc.textContent = 'Applied to all enrolled subscriptions unless overridden by a custom config.';
 
   var bannerLink = document.createElement('a');
   bannerLink.href = '#';
