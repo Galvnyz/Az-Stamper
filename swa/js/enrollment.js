@@ -109,7 +109,13 @@ async function checkEnrollmentDetail(subId, token) {
     esData = await azureFetch(esUrl, token);
   } catch (err) {
     console.error('Failed to list event subscriptions for topic ' + topicId + ':', err);
-    return null;
+    // Fail-open: topic exists, assume active even if we can't list event subscriptions
+    return {
+      active: true,
+      systemTopicName: systemTopicName,
+      systemTopicRg: systemTopicRg,
+      eventSubscriptionName: null,
+    };
   }
 
   var eventSubs = (esData && esData.value) ? esData.value : [];
