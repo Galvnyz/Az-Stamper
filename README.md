@@ -14,7 +14,9 @@
 </p>
 
 <p align="center">
-  <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fdeploy.json"><img src="https://aka.ms/deploytoazurebutton" alt="Deploy to Azure" /></a>
+  <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fdeploy.json"><img src="https://img.shields.io/badge/Deploy_Hub_to_Azure-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white" alt="Deploy Hub to Azure" /></a>
+  &nbsp;
+  <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json"><img src="https://img.shields.io/badge/Enroll_Subscription-00A4EF?style=for-the-badge&logo=microsoftazure&logoColor=white" alt="Enroll Subscription" /></a>
 </p>
 
 ---
@@ -174,9 +176,9 @@ Deployment is two steps: **deploy the hub**, then **enroll each subscription** y
 
 #### Step 1: Deploy the hub
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fdeploy.json)
+[![Deploy Hub to Azure](https://img.shields.io/badge/Deploy_Hub_to_Azure-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fdeploy.json)
 
-1. Click the **Deploy to Azure** button
+1. Click the **Deploy Hub to Azure** button
 2. The Azure portal opens a **Custom deployment** form. Fill in the required fields:
    - **Region** — pick the Azure region closest to you (e.g., East US 2, West Europe)
    - **Resource Group Name** — a name for the new resource group (default: `rg-az-stamper`)
@@ -190,7 +192,7 @@ Deployment is two steps: **deploy the hub**, then **enroll each subscription** y
 
 Enroll your subscription to start tagging. The template waits for the function to finish loading before creating the Event Grid subscription, so you can run this immediately after Step 1 completes.
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json)
+[![Enroll Subscription](https://img.shields.io/badge/Enroll_Subscription-00A4EF?style=for-the-badge&logo=microsoftazure&logoColor=white)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json)
 
 The enrollment template automatically looks up your function app — just confirm the **Resource Group Name** and **Function App Name** match what you used in Step 1 (defaults work if you didn't change them). This creates the Event Grid system topic and event subscription that routes resource events to your function.
 
@@ -411,7 +413,7 @@ Subscriptions not explicitly configured receive the global default tags automati
 
 ### Enroll a Subscription
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json)
+[![Enroll Subscription](https://img.shields.io/badge/Enroll_Subscription-00A4EF?style=for-the-badge&logo=microsoftazure&logoColor=white)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json)
 
 **Parameters:**
 
