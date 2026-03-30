@@ -143,6 +143,10 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
           value: 'Microsoft.Security/'
         }
         {
+          name: 'StamperConfig__IgnorePatterns__8'
+          value: 'Microsoft.EventGrid/'
+        }
+        {
           name: 'StamperConfig__ConfigBlobUri'
           value: 'https://${storageAccountName}.blob.${environment().suffixes.storage}/config/stamper.json'
         }
