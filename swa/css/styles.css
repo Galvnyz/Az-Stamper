@@ -488,9 +488,9 @@ tbody tr:hover {
 }
 
 .tag-existing {
-  background: #4f46e5;
-  color: #ffffff;
-  border: 1px solid #6366f1;
+  background: rgba(96, 165, 250, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.3);
 }
 
 .tag-new {
