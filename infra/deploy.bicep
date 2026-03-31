@@ -57,6 +57,17 @@ module subscriptionRbac 'modules/subscriptionRbac.bicep' = {
   }
 }
 
+// 4. Enroll the hub subscription — Event Grid system topic + event subscription
+module eventGrid 'modules/eventGrid.bicep' = {
+  name: 'az-stamper-enrollment'
+  scope: rg
+  params: {
+    functionAppId: hub.outputs.functionAppId
+    subscriptionId: subscription().subscriptionId
+  }
+  dependsOn: [subscriptionRbac]
+}
+
 output functionAppName string = hub.outputs.functionAppName
 output functionAppId string = hub.outputs.functionAppId
 output principalId string = hub.outputs.principalId

@@ -1,5 +1,5 @@
-param systemTopicName string
-param eventSubscriptionName string
+param systemTopicName string = 'evgt-az-stamper'
+param eventSubscriptionName string = 'evgs-az-stamper'
 param functionAppId string
 param subscriptionId string
 param location string = 'global'

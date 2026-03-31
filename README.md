@@ -16,7 +16,7 @@
 <p align="center">
   <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fdeploy.json"><img src="https://img.shields.io/badge/Deploy_Hub_to_Azure-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white" alt="Deploy Hub to Azure" /></a>
   &nbsp;
-  <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json"><img src="https://img.shields.io/badge/Enroll_Subscription-00A4EF?style=for-the-badge&logo=microsoftazure&logoColor=white" alt="Enroll Subscription" /></a>
+  <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json"><img src="https://img.shields.io/badge/Enroll_Additional_Sub-00A4EF?style=for-the-badge&logo=microsoftazure&logoColor=white" alt="Enroll Additional Subscription" /></a>
 </p>
 
 ---
@@ -35,6 +35,7 @@
 - [Deployment](#deployment)
   - [Deploy to Azure](#deploy-to-azure)
   - [Developer Setup (CI/CD)](#developer-setup-cicd)
+- [Updating](#updating)
 - [Permissions](#permissions)
 - [Multi-Subscription Enrollment](#multi-subscription-enrollment)
 - [CI/CD](#cicd)
@@ -166,15 +167,13 @@ When a user creates a resource, their UPN (e.g., `alice@contoso.com`) is embedde
 
 ### Deploy to Azure
 
-Deployment is two steps: **deploy the hub**, then **enroll each subscription** you want to tag.
-
-> **Why two steps?** The hub deployment creates the function app and infrastructure, but does **not** automatically enroll any subscription for tagging. This is intentional — it gives you full control over which subscriptions get monitored and when. You explicitly enroll each subscription you want tagged, including your home subscription. This separation also avoids the Event Grid cold-start race condition (the function needs time to start before Event Grid can validate its endpoint).
+One click deploys the hub **and** enrolls the deploying subscription for tagging.
 
 **Prerequisites:**
 - An Azure subscription with **Owner** or **Contributor + User Access Administrator** role
 - The `Microsoft.EventGrid` resource provider registered on the subscription (`az provider register --namespace Microsoft.EventGrid`)
 
-#### Step 1: Deploy the hub
+#### Step 1: Deploy and enroll
 
 [![Deploy Hub to Azure](https://img.shields.io/badge/Deploy_Hub_to_Azure-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fdeploy.json)
 
@@ -186,17 +185,9 @@ Deployment is two steps: **deploy the hub**, then **enroll each subscription** y
    - **Function App Name** — name for the function app (default: `func-az-stamper`)
    - **App Insights Name** — name for Application Insights (default: `ai-az-stamper`)
 3. Click **Review + create**, then **Create**
-4. Deployment takes **3-5 minutes**. Wait for it to complete before proceeding to Step 2.
+4. Deployment takes **3-5 minutes**. The hub infrastructure, function code, RBAC, and Event Grid enrollment all deploy automatically.
 
-#### Step 2: Enroll your subscription
-
-Enroll your subscription to start tagging. The template waits for the function to finish loading before creating the Event Grid subscription, so you can run this immediately after Step 1 completes.
-
-[![Enroll Subscription](https://img.shields.io/badge/Enroll_Subscription-00A4EF?style=for-the-badge&logo=microsoftazure&logoColor=white)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json)
-
-The enrollment template automatically looks up your function app — just confirm the **Resource Group Name** and **Function App Name** match what you used in Step 1 (defaults work if you didn't change them). This creates the Event Grid system topic and event subscription that routes resource events to your function.
-
-#### Step 3: Verify it works
+#### Step 2: Verify it works
 
 After both deployments complete, create a test resource and check for tags:
 
@@ -388,6 +379,10 @@ You should see all five tags: `Creator`, `CreatedOn`, `LastModifiedBy`, `LastMod
 az storage account delete --name stazstampertest --resource-group rg-az-stamper-dev --yes
 ```
 
+## Updating
+
+When a new version of Az-Stamper is released, click the **Deploy Hub to Azure** button again with the same parameters you used originally. The default `packageUrl` always points to the latest release, so the deployment will download and deploy the new version automatically. Bicep is idempotent — existing resources are left untouched, only the function code is updated.
+
 ## Permissions
 
 Az-Stamper's function app uses a **system-assigned managed identity** — an automatically-managed service account that requires no passwords or key rotation. The Bicep templates assign these roles automatically:
@@ -411,18 +406,22 @@ Az-Stamper supports monitoring multiple subscriptions from a single centralized 
 
 Subscriptions not explicitly configured receive the global default tags automatically.
 
-### Enroll a Subscription
+### Enroll an Additional Subscription
 
-[![Enroll Subscription](https://img.shields.io/badge/Enroll_Subscription-00A4EF?style=for-the-badge&logo=microsoftazure&logoColor=white)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json)
+[![Enroll Additional Subscription](https://img.shields.io/badge/Enroll_Additional_Sub-00A4EF?style=for-the-badge&logo=microsoftazure&logoColor=white)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json)
+
+**Important:** Switch to the subscription you want to enroll before clicking the button. The template deploys Event Grid resources into the target subscription and looks up the function app in the hub subscription.
 
 **Parameters:**
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
+| `hubSubscriptionId` | *(required)* | Subscription ID where the Az-Stamper hub is deployed |
 | `resourceGroupName` | `rg-az-stamper` | Resource group containing the Az-Stamper hub |
 | `functionAppName` | `func-az-stamper` | Name of the Az-Stamper function app |
+| `enrollmentResourceGroupName` | `rg-az-stamper-enrollment` | Resource group created in this subscription for Event Grid resources |
 
-The template automatically looks up the function app's resource ID and managed identity — no need to copy IDs manually.
+The template cross-references the function app from the hub subscription and creates a lightweight resource group in the target subscription for the Event Grid system topic.
 
 ### Unenroll a Subscription
 
