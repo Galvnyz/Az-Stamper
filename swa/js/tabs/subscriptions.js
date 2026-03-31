@@ -62,6 +62,17 @@ function renderSubscriptionsTab(enrolled) {
     { name: 'StampedBy',      value: 'Az-Stamper',  overwrite: false },
   ];
 
+  // Header row
+  var headerRow = document.createElement('div');
+  headerRow.className = 'rule-row rule-header';
+  ['Tag', 'Value', 'Overwrite'].forEach(function(label) {
+    var col = document.createElement('div');
+    col.className = label === 'Tag' ? 'rule-key' : label === 'Value' ? 'rule-value' : 'rule-overwrite';
+    col.textContent = label;
+    headerRow.appendChild(col);
+  });
+  globalBody.appendChild(headerRow);
+
   globalDefaults.forEach(function(def) {
     var row = document.createElement('div');
     row.className = 'rule-row';
@@ -75,13 +86,14 @@ function renderSubscriptionsTab(enrolled) {
     valueEl.style.fontFamily = 'monospace';
     valueEl.textContent = def.value;
 
-    var overwriteChip = document.createElement('span');
-    overwriteChip.className = 'tag-chip ' + (def.overwrite ? 'tag-new' : 'tag-existing');
-    overwriteChip.textContent = def.overwrite ? 'overwrite: true' : 'overwrite: false';
+    var overwriteEl = document.createElement('div');
+    overwriteEl.className = 'rule-overwrite';
+    overwriteEl.textContent = def.overwrite ? 'True' : 'False';
+    overwriteEl.style.color = def.overwrite ? 'var(--success)' : 'var(--text-secondary)';
 
     row.appendChild(keyEl);
     row.appendChild(valueEl);
-    row.appendChild(overwriteChip);
+    row.appendChild(overwriteEl);
     globalBody.appendChild(row);
   });
 
@@ -174,8 +186,18 @@ function buildEnrolledCard(sub) {
   badges.style.cssText = 'display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0;';
 
   var statusBadge = document.createElement('span');
-  statusBadge.className = 'badge ' + (isActive ? 'badge-enabled' : 'badge-warning');
-  statusBadge.textContent = isActive ? 'Active' : 'Paused';
+  var hasEventSub = isActive && sub.eventSubscriptionName;
+  var isNotEnrolled = !isActive && !sub.eventSubscriptionName;
+  if (isNotEnrolled) {
+    statusBadge.className = 'badge badge-warning';
+    statusBadge.textContent = 'Not Enrolled';
+  } else if (isActive) {
+    statusBadge.className = 'badge badge-enabled';
+    statusBadge.textContent = 'Active';
+  } else {
+    statusBadge.className = 'badge badge-warning';
+    statusBadge.textContent = 'Paused';
+  }
   badges.appendChild(statusBadge);
 
   if (sub.hasCustomConfig) {
@@ -194,7 +216,12 @@ function buildEnrolledCard(sub) {
   body.className = 'card-body';
   body.style.marginBottom = '16px';
 
-  if (!isActive) {
+  if (isNotEnrolled) {
+    var notEnrolledMsg = document.createElement('div');
+    notEnrolledMsg.style.cssText = 'color:var(--warning);font-size:0.875rem;';
+    notEnrolledMsg.textContent = 'Not enrolled \u2014 run the enrollment template to start tagging this subscription';
+    body.appendChild(notEnrolledMsg);
+  } else if (!isActive) {
     var pausedMsg = document.createElement('div');
     pausedMsg.style.cssText = 'color:var(--warning);font-size:0.875rem;';
     pausedMsg.textContent = 'Event Grid delivery paused \u2014 no tags being applied';
@@ -275,7 +302,15 @@ function buildEnrolledCard(sub) {
 
   // Config action button
   var configBtn = document.createElement('button');
-  if (sub.hasCustomConfig) {
+  if (sub._unsavedCustomConfig) {
+    configBtn.className = 'btn btn-sm';
+    configBtn.style.color = 'var(--text-secondary)';
+    configBtn.style.borderColor = 'var(--border)';
+    configBtn.textContent = 'Cancel';
+    configBtn.addEventListener('click', function() {
+      cancelCustomConfig(sub);
+    });
+  } else if (sub.hasCustomConfig) {
     configBtn.className = 'btn btn-sm';
     configBtn.style.color = 'var(--error)';
     configBtn.style.borderColor = 'var(--error)';
@@ -512,25 +547,27 @@ async function handleTaggingToggle(sub, toggleInput) {
 // ── Add / Remove Custom Config ──────────────────────────────────────────────
 
 async function addCustomConfig(sub) {
-  var config = getConfig();
-  if (!config.subscriptions) {
-    config.subscriptions = {};
-  }
-  if (!config.subscriptions[sub.subscriptionId]) {
-    config.subscriptions[sub.subscriptionId] = {
-      displayName: sub.displayName || sub.subscriptionId,
-      tagOverrides: {},
-      resourceTypeRules: {},
-    };
-  }
+  sub._unsavedCustomConfig = true;
+  sub.hasCustomConfig = true;
+  _openEditorSubId = sub.subscriptionId;
+  var enrolled = await discoverEnrollment();
+  // Carry the unsaved flag to the matching sub in the refreshed list
+  enrolled.forEach(function(s) {
+    if (s.subscriptionId === sub.subscriptionId) {
+      s._unsavedCustomConfig = true;
+      s.hasCustomConfig = true;
+    }
+  });
+  renderSubscriptionsTab(enrolled);
+}
 
-  var ok = await saveConfig(config);
-  if (ok) {
-    _openEditorSubId = sub.subscriptionId;
-    invalidateEnrollmentCache();
-    var enrolled = await discoverEnrollment();
+function cancelCustomConfig(sub) {
+  delete sub._unsavedCustomConfig;
+  sub.hasCustomConfig = false;
+  _openEditorSubId = null;
+  discoverEnrollment().then(function(enrolled) {
     renderSubscriptionsTab(enrolled);
-  }
+  });
 }
 
 function openRemoveCustomConfigModal(sub) {
@@ -793,9 +830,9 @@ function buildIgnorePatternRow(pattern) {
 
 async function saveInlineEditor(subId, editorEl, saveBtn) {
   var config = getConfig();
+  if (!config.subscriptions) config.subscriptions = {};
   if (!config.subscriptions[subId]) {
-    showToast('Subscription not found in config', 'error');
-    return;
+    config.subscriptions[subId] = { tagOverrides: {}, resourceTypeRules: {} };
   }
 
   // Collect tag overrides
