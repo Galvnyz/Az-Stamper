@@ -153,7 +153,7 @@ function renderSubscriptionsTab(enrolled) {
 
 function buildEnrolledCard(sub) {
   var isActive = sub.active !== false;
-  var isNotEnrolled = !isActive && !sub.eventSubscriptionName;
+  var isNotEnrolled = sub.enrolled === false;
 
   var card = document.createElement('div');
   card.className = 'card';
