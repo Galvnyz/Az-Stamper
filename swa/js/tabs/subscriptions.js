@@ -97,7 +97,11 @@ function renderSubscriptionsTab(enrolled) {
     globalBody.appendChild(row);
   });
 
+  var globalNote = document.createElement('div');
+  globalNote.style.cssText = 'font-size:0.8rem;color:var(--text-secondary);margin:8px 0 0;padding:0 4px;';
+  globalNote.textContent = 'These defaults are configured in the Function App environment settings (StamperConfig__TagMap__*).';
   panel.appendChild(globalSection);
+  panel.appendChild(globalNote);
 
   // ── Enrolled Subscriptions heading ──────────────────────────────────────
   var subsHeading = document.createElement('div');
@@ -305,7 +309,11 @@ function buildEnrolledCard(sub) {
   toggleWrapper.appendChild(toggleLabel);
   footer.appendChild(toggleWrapper);
 
-  // Config action button
+  // Config action button — hide for non-enrolled subs
+  if (isNotEnrolled) {
+    card.appendChild(footer);
+    return card;
+  }
   var configBtn = document.createElement('button');
   if (sub._unsavedCustomConfig) {
     configBtn.className = 'btn btn-sm';
