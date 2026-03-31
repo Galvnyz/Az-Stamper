@@ -5,10 +5,16 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "13680915525753939255"
+      "templateHash": "18011706357660430158"
     }
   },
   "parameters": {
+    "hubSubscriptionId": {
+      "type": "string",
+      "metadata": {
+        "description": "Subscription ID where the Az-Stamper hub is deployed."
+      }
+    },
     "resourceGroupName": {
       "type": "string",
       "defaultValue": "rg-az-stamper",
@@ -21,6 +27,13 @@
       "defaultValue": "func-az-stamper",
       "metadata": {
         "description": "Name of the Az-Stamper function app."
+      }
+    },
+    "enrollmentResourceGroupName": {
+      "type": "string",
+      "defaultValue": "rg-az-stamper-enrollment",
+      "metadata": {
+        "description": "Name of the resource group to create in this subscription for Event Grid resources."
       }
     },
     "systemTopicName": {
@@ -38,12 +51,26 @@
       }
     }
   },
+  "variables": {
+    "location": "[deployment().location]"
+  },
   "resources": [
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2024-03-01",
+      "name": "[parameters('enrollmentResourceGroupName')]",
+      "location": "[variables('location')]",
+      "tags": {
+        "Project": "Az-Stamper",
+        "ManagedBy": "Bicep",
+        "Purpose": "Event Grid enrollment"
+      }
+    },
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
       "name": "az-stamper-enrollment",
-      "resourceGroup": "[parameters('resourceGroupName')]",
+      "resourceGroup": "[parameters('enrollmentResourceGroupName')]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
@@ -57,7 +84,7 @@
             "value": "[parameters('eventSubscriptionName')]"
           },
           "functionAppId": {
-            "value": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Web/sites', parameters('functionAppName'))]"
+            "value": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', parameters('hubSubscriptionId'), parameters('resourceGroupName')), 'Microsoft.Web/sites', parameters('functionAppName'))]"
           },
           "subscriptionId": {
             "value": "[subscription().subscriptionId]"
@@ -70,15 +97,17 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "2096511882392230420"
+              "templateHash": "8737465453289392663"
             }
           },
           "parameters": {
             "systemTopicName": {
-              "type": "string"
+              "type": "string",
+              "defaultValue": "evgt-az-stamper"
             },
             "eventSubscriptionName": {
-              "type": "string"
+              "type": "string",
+              "defaultValue": "evgs-az-stamper"
             },
             "functionAppId": {
               "type": "string"
@@ -135,7 +164,10 @@
             }
           ]
         }
-      }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('enrollmentResourceGroupName'))]"
+      ]
     },
     {
       "type": "Microsoft.Resources/deployments",
@@ -149,7 +181,7 @@
         "mode": "Incremental",
         "parameters": {
           "principalId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Web/sites', parameters('functionAppName')), '2023-12-01', 'full').identity.principalId]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', parameters('hubSubscriptionId'), parameters('resourceGroupName')), 'Microsoft.Web/sites', parameters('functionAppName')), '2023-12-01', 'full').identity.principalId]"
           }
         },
         "template": {
