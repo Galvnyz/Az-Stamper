@@ -72,8 +72,11 @@ $appInsights = Get-AzApplicationInsights -ResourceGroupName $ResourceGroupName -
 $appInsightsId = $appInsights[0].Id
 Write-Host "      App Insights: $($appInsights[0].Name)" -ForegroundColor DarkGray
 
-$swaSecrets = Get-AzStaticWebAppSecret -ResourceGroupName $ResourceGroupName -Name $swaName -ErrorAction Stop
-$deploymentToken = $swaSecrets.ApiKey
+$deploymentToken = az staticwebapp secrets list --name $swaName --query "properties.apiKey" -o tsv 2>$null
+if (-not $deploymentToken) {
+    Write-Error "Failed to retrieve SWA deployment token. Ensure Azure CLI is installed and logged in."
+    return
+}
 Write-Host ""
 
 # ── Step 2/4: Entra ID app registration ──────────────────────────────
