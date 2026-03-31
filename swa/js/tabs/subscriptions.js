@@ -65,7 +65,7 @@ function renderSubscriptionsTab(enrolled) {
   // Header row
   var headerRow = document.createElement('div');
   headerRow.className = 'rule-row rule-header';
-  ['Tag', 'Value', 'Overwrite'].forEach(function(label) {
+  ['Tag', 'Value', 'Overwrite Existing Tags'].forEach(function(label) {
     var col = document.createElement('div');
     col.className = label === 'Tag' ? 'rule-key' : label === 'Value' ? 'rule-value' : 'rule-overwrite';
     col.textContent = label;
@@ -153,6 +153,7 @@ function renderSubscriptionsTab(enrolled) {
 
 function buildEnrolledCard(sub) {
   var isActive = sub.active !== false;
+  var isNotEnrolled = !isActive && !sub.eventSubscriptionName;
 
   var card = document.createElement('div');
   card.className = 'card';
@@ -186,8 +187,6 @@ function buildEnrolledCard(sub) {
   badges.style.cssText = 'display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0;';
 
   var statusBadge = document.createElement('span');
-  var hasEventSub = isActive && sub.eventSubscriptionName;
-  var isNotEnrolled = !isActive && !sub.eventSubscriptionName;
   if (isNotEnrolled) {
     statusBadge.className = 'badge badge-warning';
     statusBadge.textContent = 'Not Enrolled';
@@ -280,9 +279,15 @@ function buildEnrolledCard(sub) {
   toggleInput.id = safeToggleId;
   toggleInput.className = 'toggle-input';
   toggleInput.checked = isActive;
-  toggleInput.addEventListener('change', function() {
-    handleTaggingToggle(sub, toggleInput);
-  });
+  if (isNotEnrolled) {
+    toggleInput.disabled = true;
+    toggleWrapper.style.opacity = '0.5';
+    toggleWrapper.style.cursor = 'not-allowed';
+  } else {
+    toggleInput.addEventListener('change', function() {
+      handleTaggingToggle(sub, toggleInput);
+    });
+  }
 
   var toggleTrack = document.createElement('span');
   toggleTrack.className = 'toggle-track';
@@ -293,7 +298,7 @@ function buildEnrolledCard(sub) {
   var toggleLabel = document.createElement('span');
   toggleLabel.className = 'toggle-label';
   toggleLabel.setAttribute('data-toggle-label', sub.subscriptionId);
-  toggleLabel.textContent = isActive ? 'Tagging active' : 'Tagging paused';
+  toggleLabel.textContent = isNotEnrolled ? 'Not enrolled' : isActive ? 'Tagging active' : 'Tagging paused';
 
   toggleWrapper.appendChild(toggleInput);
   toggleWrapper.appendChild(toggleTrack);
@@ -547,11 +552,21 @@ async function handleTaggingToggle(sub, toggleInput) {
 // ── Add / Remove Custom Config ──────────────────────────────────────────────
 
 async function addCustomConfig(sub) {
+  // Create the config entry in memory (not saved to blob yet)
+  var config = getConfig();
+  if (!config.subscriptions) config.subscriptions = {};
+  if (!config.subscriptions[sub.subscriptionId]) {
+    config.subscriptions[sub.subscriptionId] = {
+      displayName: sub.displayName || sub.subscriptionId,
+      tagOverrides: {},
+      resourceTypeRules: {},
+    };
+  }
+
   sub._unsavedCustomConfig = true;
   sub.hasCustomConfig = true;
   _openEditorSubId = sub.subscriptionId;
   var enrolled = await discoverEnrollment();
-  // Carry the unsaved flag to the matching sub in the refreshed list
   enrolled.forEach(function(s) {
     if (s.subscriptionId === sub.subscriptionId) {
       s._unsavedCustomConfig = true;
@@ -562,6 +577,11 @@ async function addCustomConfig(sub) {
 }
 
 function cancelCustomConfig(sub) {
+  // Remove the in-memory config entry (never saved to blob)
+  var config = getConfig();
+  if (config.subscriptions && config.subscriptions[sub.subscriptionId]) {
+    delete config.subscriptions[sub.subscriptionId];
+  }
   delete sub._unsavedCustomConfig;
   sub.hasCustomConfig = false;
   _openEditorSubId = null;

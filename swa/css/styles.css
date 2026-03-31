@@ -115,6 +115,18 @@ ul, ol {
 .header-logo:hover {
   opacity: 0.8;
 }
+.header-logo-text {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.1;
+  vertical-align: middle;
+}
+.header-logo-sub {
+  font-size: 0.6rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+  letter-spacing: 0.05em;
+}
 
 .header-user {
   margin-left: auto;
@@ -679,7 +691,7 @@ tbody tr:hover {
 }
 
 .rule-overwrite {
-  width: 80px;
+  width: 150px;
   text-align: center;
   font-size: 0.875rem;
   flex-shrink: 0;

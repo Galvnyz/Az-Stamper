@@ -141,8 +141,22 @@ async function checkEnrollmentDetail(subId, token) {
   }
 
   var eventSubs = (esData && esData.value) ? esData.value : [];
-  var active = eventSubs.length > 0;
-  var eventSubscriptionName = active ? eventSubs[0].name : null;
+  var functionAppId = (window.AZ_STAMPER_CONFIG || {}).functionAppId || '';
+
+  // Only consider event subscriptions that target this Az-Stamper function app
+  var matchingEs = null;
+  for (var j = 0; j < eventSubs.length; j++) {
+    var es = eventSubs[j];
+    var dest = es.properties && es.properties.destination;
+    var destId = (dest && dest.properties && dest.properties.resourceId) || '';
+    if (functionAppId && destId.toLowerCase().indexOf(functionAppId.toLowerCase()) === 0) {
+      matchingEs = es;
+      break;
+    }
+  }
+
+  var active = matchingEs !== null;
+  var eventSubscriptionName = active ? matchingEs.name : null;
 
   return {
     active: active,
