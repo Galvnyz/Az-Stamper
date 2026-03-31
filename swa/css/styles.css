@@ -110,6 +110,10 @@ ul, ol {
   white-space: nowrap;
   flex-shrink: 0;
   letter-spacing: -0.01em;
+  text-decoration: none;
+}
+.header-logo:hover {
+  opacity: 0.8;
 }
 
 .header-user {
@@ -661,8 +665,24 @@ tbody tr:hover {
   border-bottom: none;
 }
 
-.rule-row:hover {
+.rule-row:hover:not(.rule-header) {
   background: var(--bg-hover);
+}
+
+.rule-header {
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  border-bottom: 2px solid var(--border);
+}
+
+.rule-overwrite {
+  width: 80px;
+  text-align: center;
+  font-size: 0.875rem;
+  flex-shrink: 0;
 }
 
 .rule-key {
