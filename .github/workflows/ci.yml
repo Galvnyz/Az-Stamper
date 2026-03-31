@@ -61,5 +61,5 @@ jobs:
       - name: Build Bicep
         run: |
           az bicep build --file infra/main.bicep
-          az bicep build --file infra/main.sub.bicep
           az bicep build --file infra/deploy.bicep
+          az bicep build --file infra/enroll.bicep
