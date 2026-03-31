@@ -5,12 +5,16 @@ using Azure.Storage.Blobs;
 using AzStamper.Core;
 using AzStamper.Core.Models;
 using AzStamper.Core.Services;
+using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Graph;
 
 var builder = FunctionsApplication.CreateBuilder(args);
+
+builder.Services.AddApplicationInsightsTelemetryWorkerService();
+builder.Services.ConfigureFunctionsApplicationInsights();
 
 builder.Services.Configure<StamperConfig>(
     builder.Configuration.GetSection("StamperConfig"));
