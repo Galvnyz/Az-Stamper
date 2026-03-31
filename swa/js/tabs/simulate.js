@@ -26,7 +26,9 @@ window._simResults = null;
 
 // ── Entry point ──────────────────────────────────────────────────────────────
 
-function loadSimulateTab() {
+async function loadSimulateTab() {
+  // Ensure enrollment cache is populated for subscription dropdown
+  await discoverEnrollment();
   var panel = document.getElementById('panel-simulate');
   panel.textContent = '';
   renderSimulateTab();

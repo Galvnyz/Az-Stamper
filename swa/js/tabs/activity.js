@@ -4,7 +4,9 @@ var _activityTimeRange = '1d';
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
-function loadActivityTab() {
+async function loadActivityTab() {
+  // Ensure enrollment cache is populated for subscription name resolution
+  await discoverEnrollment();
   var panel = document.getElementById('panel-activity');
   panel.textContent = '';
   renderActivityControls();
