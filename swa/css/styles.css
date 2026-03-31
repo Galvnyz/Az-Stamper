@@ -143,7 +143,7 @@ ul, ol {
   padding: 0 16px;
   height: 100%;
   cursor: pointer;
-  font-size: 0.875rem;
+  font-size: 1.0625rem;
   font-weight: 500;
   color: var(--text-secondary);
   border-bottom: 2px solid transparent;
