@@ -72,11 +72,19 @@ $appInsights = Get-AzApplicationInsights -ResourceGroupName $ResourceGroupName -
 $appInsightsId = $appInsights[0].Id
 Write-Host "      App Insights: $($appInsights[0].Name)" -ForegroundColor DarkGray
 
+$functionApp = Get-AzWebApp -ResourceGroupName $ResourceGroupName -Name $FunctionAppName -ErrorAction Stop
+$functionAppId = $functionApp.Id
+Write-Host "      Function App: $FunctionAppName" -ForegroundColor DarkGray
+
 $deploymentToken = az staticwebapp secrets list --name $swaName --query "properties.apiKey" -o tsv 2>$null
 if (-not $deploymentToken) {
     Write-Error "Failed to retrieve SWA deployment token. Ensure Azure CLI is installed and logged in."
     return
 }
+
+# Configure CORS on storage account so the SWA can read/write config blobs
+az storage cors add --services b --methods GET PUT OPTIONS --origins "https://$swaHostname" --allowed-headers "*" --exposed-headers "*" --max-age 3600 --account-name $storageAccountName 2>$null
+Write-Host "      Storage CORS: configured for https://$swaHostname" -ForegroundColor DarkGray
 Write-Host ""
 
 # ── Step 2/4: Entra ID app registration ──────────────────────────────
@@ -145,7 +153,8 @@ window.AZ_STAMPER_CONFIG = {
   clientId: '$clientId',
   tenantId: '$tenantId',
   configBlobUrl: 'https://$storageAccountName.blob.core.windows.net/config/stamper.json',
-  appInsightsId: '$appInsightsId'
+  appInsightsId: '$appInsightsId',
+  functionAppId: '$functionAppId'
 };
 "@
 
