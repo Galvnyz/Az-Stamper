@@ -124,6 +124,16 @@ $requiredAccess = @(
 Update-AzADApplication -ObjectId $appObjectId -RequiredResourceAccess $requiredAccess
 
 Write-Host "      App: $AppDisplayName (client ID: $clientId)" -ForegroundColor DarkGray
+
+# Assign Storage Blob Data Contributor to current user (needed for config read/write)
+$userId = $context.Account.Id
+$storageScope = "/subscriptions/$($context.Subscription.Id)/resourceGroups/$ResourceGroupName/providers/Microsoft.Storage/storageAccounts/$storageAccountName"
+$blobContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+$existingAssignment = Get-AzRoleAssignment -SignInName $userId -RoleDefinitionId $blobContributorRoleId -Scope $storageScope -ErrorAction SilentlyContinue
+if (-not $existingAssignment) {
+    New-AzRoleAssignment -SignInName $userId -RoleDefinitionId $blobContributorRoleId -Scope $storageScope -ErrorAction Stop | Out-Null
+    Write-Host "      Assigned Storage Blob Data Contributor to $userId" -ForegroundColor DarkGray
+}
 Write-Host ""
 
 # ── Step 3/4: Generate app-config.js ─────────────────────────────────
