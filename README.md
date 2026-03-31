@@ -35,6 +35,7 @@
 - [Deployment](#deployment)
   - [Deploy to Azure](#deploy-to-azure)
   - [Developer Setup (CI/CD)](#developer-setup-cicd)
+  - [Optional: enable the Config UI](#optional-enable-the-config-ui)
 - [Updating](#updating)
 - [Permissions](#permissions)
 - [Multi-Subscription Enrollment](#multi-subscription-enrollment)
@@ -220,6 +221,24 @@ az functionapp config appsettings set --name <your-function-app> --resource-grou
 ```
 
 **After deployment**, resources begin tagging automatically. To enroll additional subscriptions, see [Multi-Subscription Enrollment](#multi-subscription-enrollment).
+
+---
+
+#### Optional: enable the Config UI
+
+Az-Stamper includes a browser-based config management UI for managing tag rules, simulating tag changes, and viewing activity. To enable it:
+
+**Prerequisites:** [PowerShell 7](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell), [Az module](https://learn.microsoft.com/en-us/powershell/azure/install-azure-powershell) (`Install-Module Az`), [Node.js](https://nodejs.org/) (for npx)
+
+```bash
+# Connect to Azure (if not already)
+pwsh -Command "Connect-AzAccount"
+
+# Run the setup script
+pwsh -File scripts/Setup-SwaAuth.ps1
+```
+
+The script creates an Entra ID app registration, generates the config file, and deploys the UI. Open the URL printed at the end to access the config UI. You can re-run the script at any time to redeploy.
 
 ---
 
