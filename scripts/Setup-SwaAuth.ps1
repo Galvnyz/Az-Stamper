@@ -109,6 +109,20 @@ else {
     Write-Host "      Created: $clientId" -ForegroundColor DarkGray
 }
 
+# Ensure delegated API permissions are configured
+$appObjectId = if ($existingApp) { $existingApp.Id } else { $newApp.Id }
+$requiredAccess = @(
+    @{
+        ResourceAppId  = '797f4846-ba00-4fd7-ba43-dac1f8f63013'
+        ResourceAccess = @(@{ Id = '41094075-9dad-400e-a0bd-54e686782033'; Type = 'Scope' })
+    },
+    @{
+        ResourceAppId  = 'e406a681-f3d4-42a8-90b6-c2b029497af1'
+        ResourceAccess = @(@{ Id = '03e0da56-190b-40ad-a80c-ea378c433f7f'; Type = 'Scope' })
+    }
+)
+Update-AzADApplication -ObjectId $appObjectId -RequiredResourceAccess $requiredAccess
+
 Write-Host "      App: $AppDisplayName (client ID: $clientId)" -ForegroundColor DarkGray
 Write-Host ""
 
