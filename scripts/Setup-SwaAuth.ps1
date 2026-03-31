@@ -138,7 +138,9 @@ Write-Host ""
 Write-Host "[4/4] Deploying SWA content..." -ForegroundColor White
 
 $swaDir = Split-Path -Parent $configPath | Split-Path -Parent
-npx --yes @azure/static-web-apps-cli deploy $swaDir --deployment-token $deploymentToken --env production
+$env:SWA_CLI_DEPLOYMENT_TOKEN = $deploymentToken
+npx --yes @azure/static-web-apps-cli deploy $swaDir --env production
+$env:SWA_CLI_DEPLOYMENT_TOKEN = $null
 
 Write-Host ""
 Write-Host "Setup complete!" -ForegroundColor Green
