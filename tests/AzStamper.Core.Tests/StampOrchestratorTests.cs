@@ -47,6 +47,7 @@ public class StampOrchestratorTests
             options,
             configResolver,
             _configProvider.Object,
+            new Services.ComplianceEvaluator(),
             _logger.Object);
     }
 

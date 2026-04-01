@@ -47,6 +47,13 @@
           "items": {
             "type": "string"
           }
+        },
+        "compliancePolicies": {
+          "type": "array",
+          "description": "Tag compliance policies for this subscription.",
+          "items": {
+            "$ref": "#/$defs/compliancePolicy"
+          }
         }
       }
     },
@@ -83,6 +90,64 @@
           }
         }
       }
+    },
+    "compliancePolicy": {
+      "type": "object",
+      "description": "Defines required tags and validation rules for compliance checking.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Display name for this policy."
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether this policy is active."
+        },
+        "requiredTags": {
+          "type": "array",
+          "description": "Tags that must exist on matching resources.",
+          "items": {
+            "$ref": "#/$defs/requiredTag"
+          }
+        },
+        "resourceTypeScope": {
+          "type": "array",
+          "description": "Resource types this policy applies to. Empty array means all types.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enforcementMode": {
+          "type": "string",
+          "enum": ["audit"],
+          "default": "audit",
+          "description": "Enforcement mode. Currently only 'audit' (log violations without blocking)."
+        }
+      },
+      "required": ["name", "requiredTags"]
+    },
+    "requiredTag": {
+      "type": "object",
+      "description": "A tag that must exist on resources for compliance.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Tag name that must exist."
+        },
+        "allowedValues": {
+          "type": ["array", "null"],
+          "description": "Acceptable values. Null or omitted means any value is acceptable.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pattern": {
+          "type": ["string", "null"],
+          "description": "Regex pattern the tag value must match."
+        }
+      },
+      "required": ["name"]
     }
   }
 }
