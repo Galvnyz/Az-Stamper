@@ -9,12 +9,25 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.ApplicationInsights;
 using Microsoft.Graph;
 
 var builder = FunctionsApplication.CreateBuilder(args);
 
 builder.Services.AddApplicationInsightsTelemetryWorkerService();
 builder.Services.ConfigureFunctionsApplicationInsights();
+
+// ConfigureFunctionsApplicationInsights() sets a default filter that blocks Information-level
+// logs from reaching Application Insights. Override it so our stamping traces flow through.
+builder.Logging.Services.Configure<LoggerFilterOptions>(options =>
+{
+    var aiFilter = options.Rules.FirstOrDefault(r =>
+        r.ProviderName == typeof(ApplicationInsightsLoggerProvider).FullName
+        && string.IsNullOrEmpty(r.CategoryName));
+    if (aiFilter is not null)
+        options.Rules.Remove(aiFilter);
+});
 
 builder.Services.Configure<StamperConfig>(
     builder.Configuration.GetSection("StamperConfig"));

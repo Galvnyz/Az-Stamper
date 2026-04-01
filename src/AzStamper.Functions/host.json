@@ -9,6 +9,7 @@
       "enableLiveMetricsFilters": true
     },
     "logLevel": {
+      "Default": "Warning",
       "AzStamper": "Information",
       "Function": "Information",
       "Host.Results": "Information",
