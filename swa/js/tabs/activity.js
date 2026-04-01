@@ -184,7 +184,7 @@ async function refreshActivity() {
     var kql = [
       'traces',
       '| where timestamp > ago(' + range + ')',
-      '| where message contains "Stamped" or message contains "skipping" or message contains "Failed"',
+      '| where message contains "Stamped" or message contains "skipping" or message contains "Failed" or message contains "Compliance violation"',
       '| extend ResourceId = coalesce(tostring(customDimensions.ResourceId), extract("(?:on|for) (/subscriptions/[^\\\\s\\\\[]+)", 1, message))',
       '| extend SubscriptionId = coalesce(tostring(customDimensions.SubscriptionId), extract("/subscriptions/([^/]+)", 1, ResourceId))',
       '| extend ResourceType = coalesce(tostring(customDimensions.ResourceType), extract("/providers/([^/]+/[^/]+)", 1, ResourceId))',
@@ -492,6 +492,12 @@ function parseAppliedTags(tagsStr) {
 }
 
 function classifyOutcome(message) {
+  if (message.indexOf('Compliance violation') !== -1) {
+    return {
+      label: 'Non-Compliant',
+      style: 'background:rgba(239,68,68,0.15);color:var(--error,#ef4444);',
+    };
+  }
   if (message.indexOf('Stamped') !== -1) {
     return {
       label: 'Tagged',

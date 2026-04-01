@@ -35,6 +35,7 @@ public class StampOrchestratorMultiSubTests
             Options.Create(GlobalConfig),
             configResolver,
             _configProvider.Object,
+            new Services.ComplianceEvaluator(),
             _logger.Object);
     }
 

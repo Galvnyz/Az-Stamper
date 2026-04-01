@@ -648,6 +648,26 @@ function buildInlineEditor(sub) {
   });
   ignoreSubsection.appendChild(addPatternBtn);
 
+  // Compliance Policies
+  var complianceSubsection = buildSubsection('Compliance Policies', overridesBody);
+  var policyList = document.createElement('div');
+  policyList.className = 'compliance-policy-list';
+  complianceSubsection.appendChild(policyList);
+
+  var existingPolicies = subConfig.compliancePolicies || [];
+  existingPolicies.forEach(function(policy) {
+    policyList.appendChild(buildCompliancePolicyRow(policy));
+  });
+
+  var addPolicyBtn = document.createElement('button');
+  addPolicyBtn.className = 'btn btn-secondary btn-sm';
+  addPolicyBtn.style.cssText = 'margin:10px 20px 14px;';
+  addPolicyBtn.textContent = '+ Add Policy';
+  addPolicyBtn.addEventListener('click', function() {
+    policyList.appendChild(buildCompliancePolicyRow({ name: '', enabled: true, requiredTags: [{ name: '' }], resourceTypeScope: [], enforcementMode: 'audit' }));
+  });
+  complianceSubsection.appendChild(addPolicyBtn);
+
   // ── Save / Reset action bar ─────────────────────────────────────────────
   var actionBar = document.createElement('div');
   actionBar.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;margin-top:16px;';
@@ -1222,6 +1242,106 @@ function buildIgnorePatternRow(pattern) {
   return row;
 }
 
+function buildCompliancePolicyRow(policy) {
+  var row = document.createElement('div');
+  row.className = 'compliance-policy-row';
+  row.style.cssText = 'padding:12px 16px;margin:8px 0;background:var(--surface);border:1px solid var(--border);border-radius:6px;';
+
+  // Header: name + enabled + remove
+  var header = document.createElement('div');
+  header.style.cssText = 'display:flex;gap:10px;align-items:center;margin-bottom:10px;';
+
+  var nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'form-input compliance-policy-name';
+  nameInput.style.cssText = 'flex:1;font-weight:600;';
+  nameInput.placeholder = 'Policy name (e.g. Mandatory Tags)';
+  nameInput.value = policy.name || '';
+
+  var enabledLabel = document.createElement('label');
+  enabledLabel.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:0.8125rem;color:var(--text-secondary);cursor:pointer;white-space:nowrap;';
+  var enabledCheckbox = document.createElement('input');
+  enabledCheckbox.type = 'checkbox';
+  enabledCheckbox.className = 'compliance-policy-enabled';
+  enabledCheckbox.checked = policy.enabled !== false;
+  enabledLabel.appendChild(enabledCheckbox);
+  enabledLabel.appendChild(document.createTextNode('Enabled'));
+
+  var removeBtn = document.createElement('button');
+  removeBtn.className = 'btn btn-danger btn-sm';
+  removeBtn.textContent = 'Remove';
+  removeBtn.addEventListener('click', function() { row.remove(); });
+
+  header.appendChild(nameInput);
+  header.appendChild(enabledLabel);
+  header.appendChild(removeBtn);
+  row.appendChild(header);
+
+  // Required tags list
+  var tagsLabel = document.createElement('div');
+  tagsLabel.style.cssText = 'font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-secondary);margin-bottom:6px;';
+  tagsLabel.textContent = 'Required Tags';
+  row.appendChild(tagsLabel);
+
+  var tagsList = document.createElement('div');
+  tagsList.className = 'compliance-required-tags';
+  row.appendChild(tagsList);
+
+  (policy.requiredTags || []).forEach(function(rt) {
+    tagsList.appendChild(buildRequiredTagRow(rt));
+  });
+
+  var addTagBtn = document.createElement('button');
+  addTagBtn.className = 'btn btn-secondary btn-sm';
+  addTagBtn.style.cssText = 'margin-top:6px;';
+  addTagBtn.textContent = '+ Required Tag';
+  addTagBtn.addEventListener('click', function() {
+    tagsList.appendChild(buildRequiredTagRow({ name: '' }));
+  });
+  row.appendChild(addTagBtn);
+
+  return row;
+}
+
+function buildRequiredTagRow(rt) {
+  var row = document.createElement('div');
+  row.className = 'compliance-required-tag-row';
+  row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap;';
+
+  var nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'form-input compliance-tag-name';
+  nameInput.style.cssText = 'width:160px;';
+  nameInput.placeholder = 'Tag name';
+  nameInput.value = rt.name || '';
+
+  var valuesInput = document.createElement('input');
+  valuesInput.type = 'text';
+  valuesInput.className = 'form-input compliance-tag-values';
+  valuesInput.style.cssText = 'flex:1;min-width:180px;';
+  valuesInput.placeholder = 'Allowed values (comma-separated, optional)';
+  valuesInput.value = (rt.allowedValues || []).join(', ');
+
+  var patternInput = document.createElement('input');
+  patternInput.type = 'text';
+  patternInput.className = 'form-input compliance-tag-pattern';
+  patternInput.style.cssText = 'width:160px;font-family:monospace;font-size:0.8125rem;';
+  patternInput.placeholder = 'Regex (optional)';
+  patternInput.value = rt.pattern || '';
+
+  var removeBtn = document.createElement('button');
+  removeBtn.className = 'btn btn-danger btn-sm';
+  removeBtn.textContent = 'Remove';
+  removeBtn.addEventListener('click', function() { row.remove(); });
+
+  row.appendChild(nameInput);
+  row.appendChild(valuesInput);
+  row.appendChild(patternInput);
+  row.appendChild(removeBtn);
+
+  return row;
+}
+
 // ── Save Inline Editor ──────────────────────────────────────────────────────
 
 async function saveInlineEditor(subId, editorEl, saveBtn) {
@@ -1325,11 +1445,49 @@ async function saveInlineEditor(subId, editorEl, saveBtn) {
     if (pattern) additionalIgnorePatterns.push(pattern);
   });
 
+  // Collect compliance policies
+  var compliancePolicies = [];
+  var policyRows = editorEl.querySelectorAll('.compliance-policy-list .compliance-policy-row');
+  policyRows.forEach(function(policyRow) {
+    var nameInput = policyRow.querySelector('.compliance-policy-name');
+    var policyName = (nameInput ? nameInput.value : '').trim();
+    if (!policyName) return;
+
+    var enabledCheckbox = policyRow.querySelector('.compliance-policy-enabled');
+    var enabled = enabledCheckbox ? enabledCheckbox.checked : true;
+
+    var requiredTags = [];
+    var tagRows = policyRow.querySelectorAll('.compliance-required-tag-row');
+    tagRows.forEach(function(tagRow) {
+      var tagNameInput = tagRow.querySelector('.compliance-tag-name');
+      var tagName = (tagNameInput ? tagNameInput.value : '').trim();
+      if (!tagName) return;
+
+      var valuesInput = tagRow.querySelector('.compliance-tag-values');
+      var valuesStr = (valuesInput ? valuesInput.value : '').trim();
+      var allowedValues = valuesStr ? valuesStr.split(',').map(function(v) { return v.trim(); }).filter(Boolean) : null;
+
+      var patternInput = tagRow.querySelector('.compliance-tag-pattern');
+      var pattern = (patternInput ? patternInput.value : '').trim() || null;
+
+      requiredTags.push({ name: tagName, allowedValues: allowedValues, pattern: pattern });
+    });
+
+    compliancePolicies.push({
+      name: policyName,
+      enabled: enabled,
+      requiredTags: requiredTags,
+      resourceTypeScope: [],
+      enforcementMode: 'audit',
+    });
+  });
+
   // Build updated subscription config
   var updatedSub = Object.assign({}, config.subscriptions[subId], {
     tagOverrides: tagOverrides,
     resourceTypeRules: resourceTypeRules,
     additionalIgnorePatterns: additionalIgnorePatterns,
+    compliancePolicies: compliancePolicies,
   });
 
   config.subscriptions[subId] = updatedSub;
