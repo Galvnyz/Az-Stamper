@@ -24,6 +24,10 @@ var GLOBAL_DEFAULT_TAGS = [
 // Holds the last simulation results for CSV export
 window._simResults = null;
 
+// Pagination state
+var SIM_PAGE_SIZE = 50;
+var _simCurrentPage = 0;
+
 // ── Entry point ──────────────────────────────────────────────────────────────
 
 async function loadSimulateTab() {
@@ -234,7 +238,7 @@ async function runSimulation(subId, typeFilter) {
       var safeType = typeFilter.replace(/'/g, '');
       whereClause += " and type =~ '" + safeType + "'";
     }
-    var kql = 'Resources | where ' + whereClause + ' | project name, type, id, tags, resourceGroup | order by type asc, name asc | take 100';
+    var kql = 'Resources | where ' + whereClause + ' | project name, type, id, tags, resourceGroup | order by type asc, name asc | take 500';
 
     var url = 'https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01';
     var result = await azureFetch(url, token, {
@@ -254,6 +258,7 @@ async function runSimulation(subId, typeFilter) {
     });
 
     window._simResults = simResults;
+    _simCurrentPage = 0;
     renderSimulationResults(simResults, resultsContainer);
   } catch (err) {
     console.error('Simulation error:', err);
@@ -460,6 +465,13 @@ function renderSimulationResults(results, container) {
     return;
   }
 
+  // ── Pagination ─────────────────────────────────────────────────────────────
+  var totalPages = Math.ceil(totalCount / SIM_PAGE_SIZE);
+  if (_simCurrentPage >= totalPages) _simCurrentPage = Math.max(0, totalPages - 1);
+  var pageStart = _simCurrentPage * SIM_PAGE_SIZE;
+  var pageEnd = Math.min(pageStart + SIM_PAGE_SIZE, totalCount);
+  var pageResults = results.slice(pageStart, pageEnd);
+
   // ── Results table ──────────────────────────────────────────────────────────
   var tableWrapper = document.createElement('div');
   tableWrapper.style.cssText = 'overflow-x:auto;';
@@ -483,7 +495,7 @@ function renderSimulationResults(results, container) {
 
   // Table body
   var tbody = document.createElement('tbody');
-  results.forEach(function(result, index) {
+  pageResults.forEach(function(result, index) {
     var tr = document.createElement('tr');
     tr.style.cssText = 'border-bottom:1px solid var(--border);' + (result.status === 'ignored' ? 'opacity:0.5;' : '');
 
@@ -565,6 +577,39 @@ function renderSimulationResults(results, container) {
   table.appendChild(tbody);
   tableWrapper.appendChild(table);
   container.appendChild(tableWrapper);
+
+  // Pagination controls
+  if (totalPages > 1) {
+    var paginationBar = document.createElement('div');
+    paginationBar.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:12px;padding:14px 0;';
+
+    var prevBtn = document.createElement('button');
+    prevBtn.className = 'btn btn-secondary btn-sm';
+    prevBtn.textContent = '\u2190 Prev';
+    prevBtn.disabled = _simCurrentPage === 0;
+    prevBtn.addEventListener('click', function() {
+      _simCurrentPage--;
+      renderSimulationResults(results, container);
+    });
+
+    var pageInfo = document.createElement('span');
+    pageInfo.style.cssText = 'font-size:0.8125rem;color:var(--text-secondary);';
+    pageInfo.textContent = (pageStart + 1) + '\u2013' + pageEnd + ' of ' + totalCount;
+
+    var nextBtn = document.createElement('button');
+    nextBtn.className = 'btn btn-secondary btn-sm';
+    nextBtn.textContent = 'Next \u2192';
+    nextBtn.disabled = _simCurrentPage >= totalPages - 1;
+    nextBtn.addEventListener('click', function() {
+      _simCurrentPage++;
+      renderSimulationResults(results, container);
+    });
+
+    paginationBar.appendChild(prevBtn);
+    paginationBar.appendChild(pageInfo);
+    paginationBar.appendChild(nextBtn);
+    container.appendChild(paginationBar);
+  }
 }
 
 function renderTagChips(tagsObj, chipClass, container) {
