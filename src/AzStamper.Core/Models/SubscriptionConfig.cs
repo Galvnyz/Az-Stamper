@@ -7,4 +7,5 @@ public class SubscriptionConfig
     public Dictionary<string, TagEntry> TagOverrides { get; set; } = new();
     public Dictionary<string, ResourceTypeRule> ResourceTypeRules { get; set; } = new();
     public List<string> AdditionalIgnorePatterns { get; set; } = new();
+    public List<CompliancePolicy> CompliancePolicies { get; set; } = new();
 }

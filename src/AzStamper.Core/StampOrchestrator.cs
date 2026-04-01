@@ -13,6 +13,7 @@ public class StampOrchestrator
     private readonly StamperConfig _globalConfig;
     private readonly ConfigResolver _configResolver;
     private readonly ISubscriptionConfigProvider _subscriptionConfigProvider;
+    private readonly ComplianceEvaluator _complianceEvaluator;
     private readonly ILogger<StampOrchestrator> _logger;
 
     public StampOrchestrator(
@@ -21,6 +22,7 @@ public class StampOrchestrator
         IOptions<StamperConfig> globalConfig,
         ConfigResolver configResolver,
         ISubscriptionConfigProvider subscriptionConfigProvider,
+        ComplianceEvaluator complianceEvaluator,
         ILogger<StampOrchestrator> logger)
     {
         _callerResolver = callerResolver;
@@ -28,6 +30,7 @@ public class StampOrchestrator
         _globalConfig = globalConfig.Value;
         _configResolver = configResolver;
         _subscriptionConfigProvider = subscriptionConfigProvider;
+        _complianceEvaluator = complianceEvaluator;
         _logger = logger;
     }
 
@@ -171,6 +174,22 @@ public class StampOrchestrator
                 "Stamped {Count} tag(s) on {ResourceId} [Sub:{SubscriptionId}, Type:{ResourceType}, Config:{ConfigSource}] Tags:{AppliedTags}",
                 tagsToApply.Count, evt.ResourceId, subscriptionId, resourceType, ruleSet.ConfigSource,
                 JsonSerializer.Serialize(tagsToApply));
+
+            // Evaluate compliance policies after stamping
+            if (subConfig?.CompliancePolicies is { Count: > 0 })
+            {
+                var finalTags = new Dictionary<string, string>(existingTags);
+                foreach (var (k, v) in tagsToApply)
+                    finalTags[k] = v;
+
+                var violations = _complianceEvaluator.Evaluate(finalTags, subConfig.CompliancePolicies, resourceType);
+                foreach (var violation in violations)
+                {
+                    _logger.LogWarning(
+                        "Compliance violation on {ResourceId}: policy '{PolicyName}' — tag '{TagName}' {Reason} [Sub:{SubscriptionId}, Mode:audit]",
+                        evt.ResourceId, violation.PolicyName, violation.TagName, violation.Reason, subscriptionId);
+                }
+            }
         }
         else
         {

@@ -71,6 +71,7 @@ else
             cacheTtl: TimeSpan.FromMinutes(5)));
 }
 
+builder.Services.AddSingleton<ComplianceEvaluator>();
 builder.Services.AddSingleton<StampOrchestrator>();
 
 builder.Build().Run();
