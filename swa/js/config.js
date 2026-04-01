@@ -78,3 +78,71 @@ async function saveConfig(config) {
 function getConfig() {
   return cachedConfig || { subscriptions: {} };
 }
+
+function exportConfigFile() {
+  var config = getConfig();
+  var json = JSON.stringify(config, null, 2);
+  var blob = new Blob([json], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', 'stamper.json');
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  showToast('Config exported', 'success');
+}
+
+async function importConfigFile(newConfig, mode) {
+  // Validate structure
+  if (!newConfig || typeof newConfig !== 'object') {
+    showToast('Invalid config file: expected a JSON object', 'error');
+    return false;
+  }
+  if (!newConfig.subscriptions || typeof newConfig.subscriptions !== 'object') {
+    showToast('Invalid config file: missing "subscriptions" object', 'error');
+    return false;
+  }
+
+  if (mode === 'replace') {
+    return await saveConfig(newConfig);
+  }
+
+  // Merge mode
+  var existing = getConfig();
+  if (!existing.subscriptions) existing.subscriptions = {};
+
+  var importedIds = Object.keys(newConfig.subscriptions);
+  importedIds.forEach(function(subId) {
+    var newSub = newConfig.subscriptions[subId];
+    if (!existing.subscriptions[subId]) {
+      existing.subscriptions[subId] = newSub;
+    } else {
+      var existingSub = existing.subscriptions[subId];
+      // Merge tagOverrides
+      if (newSub.tagOverrides) {
+        if (!existingSub.tagOverrides) existingSub.tagOverrides = {};
+        Object.assign(existingSub.tagOverrides, newSub.tagOverrides);
+      }
+      // Merge resourceTypeRules
+      if (newSub.resourceTypeRules) {
+        if (!existingSub.resourceTypeRules) existingSub.resourceTypeRules = {};
+        Object.assign(existingSub.resourceTypeRules, newSub.resourceTypeRules);
+      }
+      // Merge additionalIgnorePatterns (deduplicate)
+      if (newSub.additionalIgnorePatterns && newSub.additionalIgnorePatterns.length > 0) {
+        var patterns = (existingSub.additionalIgnorePatterns || []).concat(newSub.additionalIgnorePatterns);
+        existingSub.additionalIgnorePatterns = patterns.filter(function(p, i) {
+          return patterns.indexOf(p) === i;
+        });
+      }
+      // Preserve displayName from import if not already set
+      if (newSub.displayName && !existingSub.displayName) {
+        existingSub.displayName = newSub.displayName;
+      }
+    }
+  });
+
+  return await saveConfig(existing);
+}
