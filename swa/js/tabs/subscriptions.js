@@ -4,6 +4,37 @@
 // ── Track which inline editor is currently open ─────────────────────────────
 var _openEditorSubId = null;
 
+// ── Tag rule templates ──────────────────────────────────────────────────────
+var TAG_TEMPLATES = [
+  {
+    name: 'Cost Allocation',
+    description: 'CostCenter, Department, BudgetOwner',
+    tags: {
+      CostCenter:  { value: '', overwrite: false },
+      Department:  { value: '', overwrite: false },
+      BudgetOwner: { value: '', overwrite: false },
+    },
+  },
+  {
+    name: 'Compliance',
+    description: 'DataClassification, ComplianceScope, RetentionPolicy',
+    tags: {
+      DataClassification: { value: '', overwrite: false },
+      ComplianceScope:    { value: '', overwrite: false },
+      RetentionPolicy:    { value: '', overwrite: false },
+    },
+  },
+  {
+    name: 'Operations',
+    description: 'Environment, ManagedBy, SLA',
+    tags: {
+      Environment: { value: '', overwrite: false },
+      ManagedBy:   { value: '', overwrite: false },
+      SLA:         { value: '', overwrite: false },
+    },
+  },
+];
+
 async function loadSubscriptionsTab() {
   var panel = document.getElementById('panel-subscriptions');
   panel.textContent = '';
@@ -45,6 +76,44 @@ function renderSubscriptionsTab(enrolled) {
     renderSubscriptionsTab(fresh);
   });
   bar.appendChild(refreshBtn);
+
+  // Export config button
+  var exportBtn = document.createElement('button');
+  exportBtn.className = 'btn btn-secondary';
+  exportBtn.textContent = 'Export';
+  exportBtn.addEventListener('click', function() {
+    exportConfigFile();
+  });
+  bar.appendChild(exportBtn);
+
+  // Import config button
+  var importBtn = document.createElement('button');
+  importBtn.className = 'btn btn-secondary';
+  importBtn.textContent = 'Import';
+  importBtn.addEventListener('click', function() {
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.json';
+    fileInput.style.display = 'none';
+    fileInput.addEventListener('change', function() {
+      if (!fileInput.files || !fileInput.files[0]) return;
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          var parsed = JSON.parse(e.target.result);
+          openImportModal(parsed);
+        } catch (err) {
+          showToast('Invalid JSON file: ' + err.message, 'error');
+        }
+      };
+      reader.readAsText(fileInput.files[0]);
+    });
+    document.body.appendChild(fileInput);
+    fileInput.click();
+    document.body.removeChild(fileInput);
+  });
+  bar.appendChild(importBtn);
+
   panel.appendChild(bar);
 
   // ── Collapsible Help section ─────────────────────────────────────────────
@@ -499,9 +568,11 @@ function buildInlineEditor(sub) {
     tagOverridesList.appendChild(buildTagOverrideRow(tagName, entry.value || '', entry.overwrite === true));
   });
 
+  var tagBtnWrapper = document.createElement('div');
+  tagBtnWrapper.style.cssText = 'display:flex;gap:8px;align-items:center;margin:10px 20px 14px;';
+
   var addTagBtn = document.createElement('button');
   addTagBtn.className = 'btn btn-secondary btn-sm';
-  addTagBtn.style.cssText = 'margin:10px 20px 14px;';
   addTagBtn.textContent = '+ Add Tag';
   addTagBtn.addEventListener('click', function() {
     tagOverridesList.appendChild(buildTagOverrideRow('', '', false));
@@ -512,7 +583,17 @@ function buildInlineEditor(sub) {
       if (input) input.focus();
     }
   });
-  tagOverridesSubsection.appendChild(addTagBtn);
+  tagBtnWrapper.appendChild(addTagBtn);
+
+  var templateBtn = document.createElement('button');
+  templateBtn.className = 'btn btn-secondary btn-sm';
+  templateBtn.textContent = 'Apply Template';
+  templateBtn.addEventListener('click', function() {
+    openTemplatePickerModal(tagOverridesList);
+  });
+  tagBtnWrapper.appendChild(templateBtn);
+
+  tagOverridesSubsection.appendChild(tagBtnWrapper);
 
   // Resource Type Rules
   var resourceRulesSubsection = buildSubsection('Resource Type Rules', overridesBody);
@@ -738,6 +819,156 @@ async function confirmRemoveCustomConfig(sub) {
     invalidateEnrollmentCache();
     var enrolled = await discoverEnrollment();
     renderSubscriptionsTab(enrolled);
+  }
+}
+
+// ── Import Modal ────────────────────────────────────────────────────────────
+
+function openImportModal(parsedConfig) {
+  var subs = (parsedConfig && parsedConfig.subscriptions) ? parsedConfig.subscriptions : {};
+  var subIds = Object.keys(subs);
+
+  var bodyEl = document.createElement('div');
+
+  var desc = document.createElement('p');
+  desc.style.cssText = 'color:var(--text-secondary);margin-bottom:12px;';
+  desc.textContent = 'Found ' + subIds.length + ' subscription' + (subIds.length === 1 ? '' : 's') + ' in the uploaded file:';
+  bodyEl.appendChild(desc);
+
+  var list = document.createElement('div');
+  list.style.cssText = 'max-height:200px;overflow-y:auto;margin-bottom:12px;';
+
+  subIds.forEach(function(subId) {
+    var item = document.createElement('div');
+    item.style.cssText = 'padding:6px 0;border-bottom:1px solid var(--border);';
+    var nameEl = document.createElement('div');
+    nameEl.style.cssText = 'font-weight:600;font-size:0.875rem;color:var(--text-primary);';
+    nameEl.textContent = subs[subId].displayName || subId;
+    var idEl = document.createElement('div');
+    idEl.style.cssText = 'font-family:monospace;font-size:0.75rem;color:var(--text-secondary);';
+    idEl.textContent = subId;
+    item.appendChild(nameEl);
+    item.appendChild(idEl);
+    list.appendChild(item);
+  });
+  bodyEl.appendChild(list);
+
+  var hint = document.createElement('p');
+  hint.style.cssText = 'color:var(--text-secondary);font-size:0.8125rem;';
+  hint.textContent = 'Merge adds imported subscriptions to existing config. Replace overwrites the entire config.';
+  bodyEl.appendChild(hint);
+
+  var cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn btn-secondary';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', closeModal);
+
+  var mergeBtn = document.createElement('button');
+  mergeBtn.className = 'btn btn-primary';
+  mergeBtn.textContent = 'Merge';
+  mergeBtn.addEventListener('click', async function() {
+    var ok = await importConfigFile(parsedConfig, 'merge');
+    if (ok) {
+      closeModal();
+      showToast('Config merged successfully', 'success');
+      invalidateEnrollmentCache();
+      var enrolled = await discoverEnrollment();
+      renderSubscriptionsTab(enrolled);
+    }
+  });
+
+  var replaceBtn = document.createElement('button');
+  replaceBtn.className = 'btn btn-danger';
+  replaceBtn.textContent = 'Replace';
+  replaceBtn.addEventListener('click', async function() {
+    var ok = await importConfigFile(parsedConfig, 'replace');
+    if (ok) {
+      closeModal();
+      showToast('Config replaced successfully', 'success');
+      invalidateEnrollmentCache();
+      var enrolled = await discoverEnrollment();
+      renderSubscriptionsTab(enrolled);
+    }
+  });
+
+  showModalDOM('Import Configuration', bodyEl, [cancelBtn, mergeBtn, replaceBtn]);
+}
+
+// ── Template Picker ─────────────────────────────────────────────────────────
+
+function openTemplatePickerModal(tagOverridesList) {
+  var bodyEl = document.createElement('div');
+
+  TAG_TEMPLATES.forEach(function(template) {
+    var card = document.createElement('div');
+    card.className = 'template-card';
+
+    var header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;';
+
+    var nameEl = document.createElement('div');
+    nameEl.style.cssText = 'font-weight:600;font-size:0.9375rem;color:var(--text-primary);';
+    nameEl.textContent = template.name;
+
+    var applyBtn = document.createElement('button');
+    applyBtn.className = 'btn btn-primary btn-sm';
+    applyBtn.textContent = 'Apply';
+    applyBtn.addEventListener('click', function() {
+      applyTemplate(template, tagOverridesList);
+      closeModal();
+    });
+
+    header.appendChild(nameEl);
+    header.appendChild(applyBtn);
+    card.appendChild(header);
+
+    var chips = document.createElement('div');
+    chips.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;';
+    Object.keys(template.tags).forEach(function(tagName) {
+      var chip = document.createElement('span');
+      chip.className = 'tag-chip tag-new';
+      chip.style.fontSize = '0.75rem';
+      chip.textContent = tagName;
+      chips.appendChild(chip);
+    });
+    card.appendChild(chips);
+
+    bodyEl.appendChild(card);
+  });
+
+  var cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn btn-secondary';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', closeModal);
+
+  showModalDOM('Apply Tag Template', bodyEl, [cancelBtn]);
+}
+
+function applyTemplate(template, tagOverridesList) {
+  // Collect existing tag names from the editor
+  var existingNames = [];
+  tagOverridesList.querySelectorAll('.tag-name-input').forEach(function(input) {
+    var name = input.value.trim();
+    if (name) existingNames.push(name.toLowerCase());
+  });
+
+  var added = 0;
+  var skipped = 0;
+
+  Object.keys(template.tags).forEach(function(tagName) {
+    if (existingNames.indexOf(tagName.toLowerCase()) !== -1) {
+      skipped++;
+      return;
+    }
+    var entry = template.tags[tagName];
+    tagOverridesList.appendChild(buildTagOverrideRow(tagName, entry.value, entry.overwrite));
+    added++;
+  });
+
+  if (skipped > 0) {
+    showToast('Applied ' + template.name + ': ' + added + ' added, ' + skipped + ' skipped (already exist)', 'info');
+  } else {
+    showToast('Applied template: ' + template.name, 'success');
   }
 }
 

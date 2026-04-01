@@ -280,6 +280,26 @@ function renderActivityResults(container, rows) {
     countSpan.textContent += ' (showing ' + (pageStart + 1) + '\u2013' + pageEnd + ')';
   }
   summary.appendChild(countSpan);
+
+  // Export buttons
+  var exportWrapper = document.createElement('div');
+  exportWrapper.style.cssText = 'display:flex;gap:8px;margin-left:auto;';
+
+  var csvBtn = document.createElement('button');
+  csvBtn.className = 'btn btn-secondary btn-sm';
+  csvBtn.textContent = 'Export CSV';
+  csvBtn.addEventListener('click', function() { exportActivityCsv(rows); });
+
+  var jsonBtn = document.createElement('button');
+  jsonBtn.className = 'btn btn-secondary btn-sm';
+  jsonBtn.textContent = 'Export JSON';
+  jsonBtn.addEventListener('click', function() { exportActivityJson(rows); });
+
+  exportWrapper.appendChild(csvBtn);
+  exportWrapper.appendChild(jsonBtn);
+  summary.appendChild(exportWrapper);
+  summary.style.cssText += 'justify-content:space-between;';
+
   container.appendChild(summary);
 
   // Table wrapper for overflow
@@ -488,6 +508,78 @@ function classifyOutcome(message) {
     label: 'Skipped',
     style: 'background:var(--warning-bg,#fef9c3);color:var(--warning,#ca8a04);',
   };
+}
+
+// ── Export functions ──────────────────────────────────────────────────────────
+
+function exportActivityCsv(rows) {
+  if (!rows || rows.length === 0) {
+    showToast('No activity data to export', 'error');
+    return;
+  }
+
+  var csvRows = [];
+  csvRows.push(['Timestamp', 'ResourceName', 'ResourceType', 'SubscriptionId', 'SubscriptionName', 'Outcome', 'AppliedTags']);
+
+  rows.forEach(function(row) {
+    csvRows.push([
+      row.timestamp || '',
+      row.ResourceName || '',
+      row.ResourceType || '',
+      row.SubscriptionId || '',
+      resolveSubscriptionName(row.SubscriptionId),
+      classifyOutcome(row.message || '').label,
+      row.AppliedTags || '',
+    ]);
+  });
+
+  var csvContent = csvRows.map(function(r) {
+    return r.map(function(cell) {
+      var str = String(cell == null ? '' : cell);
+      if (str.indexOf(',') !== -1 || str.indexOf('"') !== -1 || str.indexOf('\n') !== -1) {
+        return '"' + str.replace(/"/g, '""') + '"';
+      }
+      return str;
+    }).join(',');
+  }).join('\r\n');
+
+  downloadBlob(csvContent, 'text/csv;charset=utf-8;', 'az-stamper-activity.csv');
+  showToast('Activity log exported as CSV', 'success');
+}
+
+function exportActivityJson(rows) {
+  if (!rows || rows.length === 0) {
+    showToast('No activity data to export', 'error');
+    return;
+  }
+
+  var enriched = rows.map(function(row) {
+    return {
+      timestamp: row.timestamp,
+      resourceName: row.ResourceName,
+      resourceType: row.ResourceType,
+      subscriptionId: row.SubscriptionId,
+      subscriptionName: resolveSubscriptionName(row.SubscriptionId),
+      outcome: classifyOutcome(row.message || '').label,
+      appliedTags: parseAppliedTags(row.AppliedTags),
+      rawMessage: row.message,
+    };
+  });
+
+  downloadBlob(JSON.stringify(enriched, null, 2), 'application/json', 'az-stamper-activity.json');
+  showToast('Activity log exported as JSON', 'success');
+}
+
+function downloadBlob(content, mimeType, filename) {
+  var blob = new Blob([content], { type: mimeType });
+  var url = URL.createObjectURL(blob);
+  var link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 function renderActivityEmpty(container, title, description) {
