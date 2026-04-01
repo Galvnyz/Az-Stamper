@@ -1018,16 +1018,21 @@ tbody tr:hover {
 }
 
 /* ------------------------------------------------------------
-   Inline Editor (expands below card in grid)
+   Editor Container (below the card grid)
+   ------------------------------------------------------------ */
+.editor-container {
+  margin-top: 16px;
+}
+
+/* ------------------------------------------------------------
+   Inline Editor (expands below card grid)
    ------------------------------------------------------------ */
 .inline-editor {
-  grid-column: 1 / -1;
   display: none;
   background: var(--bg-card);
   border: 1px solid var(--accent);
   border-radius: var(--radius-lg);
   padding: 20px;
-  margin-top: -8px;
   box-shadow: 0 4px 20px rgba(37, 99, 235, 0.15);
 }
 
@@ -1039,7 +1044,6 @@ tbody tr:hover {
 .card.expanded {
   border-color: var(--accent);
   box-shadow: 0 4px 20px rgba(37, 99, 235, 0.2);
-  margin-bottom: 0;
 }
 
 @keyframes slideDown {

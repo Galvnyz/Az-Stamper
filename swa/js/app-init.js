@@ -8,6 +8,8 @@ document.querySelectorAll('.tab').forEach(function(tab) {
     document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
     tab.classList.add('active');
     document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+    // Stop auto-refresh when leaving the Activity tab
+    if (window.stopAutoRefresh) window.stopAutoRefresh();
     var loadFn = window['load' + tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1) + 'Tab'];
     if (loadFn) loadFn();
   });
