@@ -1,6 +1,11 @@
-// Enrollment module — Event Grid enrollment discovery, pause, and resume
+// Enrollment module — Event Grid enrollment discovery, RBAC health check, pause, and resume
 
 var _enrollmentCache = null;
+var _functionAppPrincipalId = null;
+
+// Built-in Azure role definition IDs
+var ROLE_READER = 'acdd72a7-3385-48ef-bd42-f606fba81ae7';
+var ROLE_TAG_CONTRIBUTOR = '4a9ae827-6dc8-4573-8ac7-8239d42aa03f';
 
 // Follows ARM API nextLink pagination and collects all items from value arrays
 async function fetchAllPages(url, token) {
@@ -55,6 +60,9 @@ async function refreshEnrollment() {
   var config = getConfig();
   var configSubs = (config && config.subscriptions) ? config.subscriptions : {};
 
+  // Resolve function app's managed identity for RBAC checks
+  var principalId = await getFunctionAppPrincipalId(token);
+
   var checks = subs.map(function(sub) {
     return checkEnrollmentDetail(sub.subscriptionId, token).then(function(detail) {
       if (!detail) return null;
@@ -67,6 +75,7 @@ async function refreshEnrollment() {
         systemTopicRg: detail.systemTopicRg,
         eventSubscriptionName: detail.eventSubscriptionName,
         hasCustomConfig: Object.prototype.hasOwnProperty.call(configSubs, sub.subscriptionId),
+        rbacStatus: null, // filled in after RBAC check
       };
     });
   });
@@ -82,11 +91,81 @@ async function refreshEnrollment() {
     }
   });
 
+  // Run RBAC health checks in parallel for active subscriptions
+  if (principalId) {
+    var rbacChecks = enrolled.map(function(sub) {
+      if (!sub.active) return Promise.resolve(null);
+      return checkRbacHealth(sub.subscriptionId, principalId, token).then(function(status) {
+        sub.rbacStatus = status;
+      });
+    });
+    await Promise.allSettled(rbacChecks);
+  }
+
   console.log('Enrollment: found ' + enrolled.length + ' enrolled sub(s): ' +
     enrolled.map(function(s) { return s.displayName + ' (' + (s.active ? 'active' : 'paused') + ')'; }).join(', '));
 
   _enrollmentCache = enrolled;
   return _enrollmentCache;
+}
+
+// Resolves the function app's managed identity principal ID (cached)
+async function getFunctionAppPrincipalId(token) {
+  if (_functionAppPrincipalId) return _functionAppPrincipalId;
+
+  var functionAppId = (window.AZ_STAMPER_CONFIG || {}).functionAppId || '';
+  if (!functionAppId) return null;
+
+  try {
+    var data = await azureFetch(
+      'https://management.azure.com' + functionAppId + '?api-version=2023-12-01',
+      token
+    );
+    if (data && data.identity && data.identity.principalId) {
+      _functionAppPrincipalId = data.identity.principalId;
+      console.log('Enrollment: function app principal ID = ' + _functionAppPrincipalId);
+      return _functionAppPrincipalId;
+    }
+  } catch (err) {
+    console.warn('Enrollment: could not resolve function app identity:', err.message);
+  }
+  return null;
+}
+
+// Checks whether the function app's managed identity has Reader + Tag Contributor on a subscription
+async function checkRbacHealth(subId, principalId, token) {
+  if (!principalId) return 'unknown';
+
+  var url = 'https://management.azure.com/subscriptions/' + subId +
+    '/providers/Microsoft.Authorization/roleAssignments?api-version=2022-04-01' +
+    '&$filter=principalId%20eq%20%27' + principalId + '%27';
+
+  var assignments;
+  try {
+    assignments = await fetchAllPages(url, token);
+  } catch (err) {
+    console.warn('Enrollment: RBAC check failed for ' + subId + ':', err.message);
+    return 'unknown';
+  }
+
+  var hasReader = false;
+  var hasTagContributor = false;
+
+  for (var i = 0; i < assignments.length; i++) {
+    var props = assignments[i].properties || {};
+    var roleId = (props.roleDefinitionId || '').toLowerCase();
+    if (roleId.indexOf(ROLE_READER) !== -1) hasReader = true;
+    if (roleId.indexOf(ROLE_TAG_CONTRIBUTOR) !== -1) hasTagContributor = true;
+    if (hasReader && hasTagContributor) break;
+  }
+
+  if (hasReader && hasTagContributor) return 'ok';
+
+  var missing = [];
+  if (!hasReader) missing.push('Reader');
+  if (!hasTagContributor) missing.push('Tag Contributor');
+  console.log('Enrollment: ' + subId + ' missing RBAC: ' + missing.join(', '));
+  return 'degraded';
 }
 
 // Checks a single subscription for an Az-Stamper Event Grid system topic

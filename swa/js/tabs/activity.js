@@ -1,6 +1,12 @@
 // Activity Tab — recent tagging events from Application Insights
 
 var _activityTimeRange = '1d';
+var _autoRefreshInterval = null;
+
+// Pagination state
+var ACT_PAGE_SIZE = 50;
+var _actCurrentPage = 0;
+var _actAllRows = null;
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
@@ -13,7 +19,15 @@ async function loadActivityTab() {
   refreshActivity();
 }
 
+function stopAutoRefresh() {
+  if (_autoRefreshInterval) {
+    clearInterval(_autoRefreshInterval);
+    _autoRefreshInterval = null;
+  }
+}
+
 window.loadActivityTab = loadActivityTab;
+window.stopAutoRefresh = stopAutoRefresh;
 
 // ── Controls bar ─────────────────────────────────────────────────────────────
 
@@ -66,6 +80,46 @@ function renderActivityControls() {
   });
   rangeWrapper.appendChild(rangeSelect);
   bar.appendChild(rangeWrapper);
+
+  // Auto-refresh toggle
+  var autoRefreshWrapper = document.createElement('label');
+  autoRefreshWrapper.className = 'toggle-wrapper';
+  autoRefreshWrapper.style.flexShrink = '0';
+
+  var autoRefreshInput = document.createElement('input');
+  autoRefreshInput.type = 'checkbox';
+  autoRefreshInput.className = 'toggle-input';
+  autoRefreshInput.id = 'activity-auto-refresh';
+  autoRefreshInput.checked = _autoRefreshInterval !== null;
+  autoRefreshWrapper.setAttribute('for', 'activity-auto-refresh');
+
+  var autoRefreshTrack = document.createElement('span');
+  autoRefreshTrack.className = 'toggle-track';
+  var autoRefreshThumb = document.createElement('span');
+  autoRefreshThumb.className = 'toggle-thumb';
+  autoRefreshTrack.appendChild(autoRefreshThumb);
+
+  var autoRefreshLabel = document.createElement('span');
+  autoRefreshLabel.className = 'toggle-label';
+  autoRefreshLabel.style.fontSize = '0.8125rem';
+  autoRefreshLabel.textContent = 'Auto-refresh (30s)';
+
+  autoRefreshInput.addEventListener('change', function() {
+    if (autoRefreshInput.checked) {
+      _autoRefreshInterval = setInterval(function() {
+        refreshActivity();
+      }, 30000);
+      showToast('Auto-refresh enabled (every 30s)', 'info');
+    } else {
+      clearInterval(_autoRefreshInterval);
+      _autoRefreshInterval = null;
+    }
+  });
+
+  autoRefreshWrapper.appendChild(autoRefreshInput);
+  autoRefreshWrapper.appendChild(autoRefreshTrack);
+  autoRefreshWrapper.appendChild(autoRefreshLabel);
+  bar.appendChild(autoRefreshWrapper);
 
   // Refresh button
   var refreshBtn = document.createElement('button');
@@ -139,7 +193,7 @@ async function refreshActivity() {
       '| where isnotempty(ResourceId)',
       '| project timestamp, ResourceName, ResourceType, SubscriptionId, message, AppliedTags',
       '| order by timestamp desc',
-      '| take 100',
+      '| take 500',
     ].join('\n');
 
     var url = 'https://management.azure.com' + appInsightsId + '/query?api-version=2018-04-20';
@@ -150,6 +204,8 @@ async function refreshActivity() {
     });
 
     var rows = parseAppInsightsResponse(data);
+    _actAllRows = rows;
+    _actCurrentPage = 0;
     renderActivityResults(resultsEl, rows);
 
   } catch (err) {
@@ -205,13 +261,24 @@ function renderActivityResults(container, rows) {
     return;
   }
 
+  // Pagination
+  var totalCount = rows.length;
+  var totalPages = Math.ceil(totalCount / ACT_PAGE_SIZE);
+  if (_actCurrentPage >= totalPages) _actCurrentPage = Math.max(0, totalPages - 1);
+  var pageStart = _actCurrentPage * ACT_PAGE_SIZE;
+  var pageEnd = Math.min(pageStart + ACT_PAGE_SIZE, totalCount);
+  var pageRows = rows.slice(pageStart, pageEnd);
+
   // Summary bar
   var summary = document.createElement('div');
   summary.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 0 14px 0;color:var(--text-secondary);font-size:0.875rem;';
   var countSpan = document.createElement('span');
   countSpan.style.fontWeight = '600';
   countSpan.style.color = 'var(--text-primary)';
-  countSpan.textContent = rows.length + ' event' + (rows.length === 1 ? '' : 's');
+  countSpan.textContent = totalCount + ' event' + (totalCount === 1 ? '' : 's');
+  if (totalPages > 1) {
+    countSpan.textContent += ' (showing ' + (pageStart + 1) + '\u2013' + pageEnd + ')';
+  }
   summary.appendChild(countSpan);
   container.appendChild(summary);
 
@@ -240,7 +307,7 @@ function renderActivityResults(container, rows) {
   // Body
   var tbody = document.createElement('tbody');
 
-  rows.forEach(function(row, idx) {
+  pageRows.forEach(function(row, idx) {
     var tr = document.createElement('tr');
     tr.style.backgroundColor = idx % 2 === 0 ? '' : 'var(--surface-alt, rgba(0,0,0,0.02))';
 
@@ -360,6 +427,39 @@ function renderActivityResults(container, rows) {
   table.appendChild(tbody);
   tableWrapper.appendChild(table);
   container.appendChild(tableWrapper);
+
+  // Pagination controls
+  if (totalPages > 1) {
+    var paginationBar = document.createElement('div');
+    paginationBar.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:12px;padding:14px 0;';
+
+    var prevBtn = document.createElement('button');
+    prevBtn.className = 'btn btn-secondary btn-sm';
+    prevBtn.textContent = '\u2190 Prev';
+    prevBtn.disabled = _actCurrentPage === 0;
+    prevBtn.addEventListener('click', function() {
+      _actCurrentPage--;
+      renderActivityResults(container, rows);
+    });
+
+    var pageInfo = document.createElement('span');
+    pageInfo.style.cssText = 'font-size:0.8125rem;color:var(--text-secondary);';
+    pageInfo.textContent = 'Page ' + (_actCurrentPage + 1) + ' of ' + totalPages;
+
+    var nextBtn = document.createElement('button');
+    nextBtn.className = 'btn btn-secondary btn-sm';
+    nextBtn.textContent = 'Next \u2192';
+    nextBtn.disabled = _actCurrentPage >= totalPages - 1;
+    nextBtn.addEventListener('click', function() {
+      _actCurrentPage++;
+      renderActivityResults(container, rows);
+    });
+
+    paginationBar.appendChild(prevBtn);
+    paginationBar.appendChild(pageInfo);
+    paginationBar.appendChild(nextBtn);
+    container.appendChild(paginationBar);
+  }
 }
 
 function parseAppliedTags(tagsStr) {

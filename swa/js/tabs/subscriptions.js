@@ -47,6 +47,89 @@ function renderSubscriptionsTab(enrolled) {
   bar.appendChild(refreshBtn);
   panel.appendChild(bar);
 
+  // ── Collapsible Help section ─────────────────────────────────────────────
+  var helpSection = document.createElement('details');
+  helpSection.style.cssText = 'margin-bottom:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);';
+
+  var helpSummary = document.createElement('summary');
+  helpSummary.style.cssText = 'padding:12px 20px;cursor:pointer;font-size:0.875rem;font-weight:600;color:var(--text-primary);user-select:none;list-style:none;display:flex;align-items:center;gap:8px;';
+  var helpArrow = document.createElement('span');
+  helpArrow.style.cssText = 'transition:transform 150ms;display:inline-block;';
+  helpArrow.textContent = '\u25B6';
+  helpSummary.appendChild(helpArrow);
+  helpSummary.appendChild(document.createTextNode(' How Az-Stamper configuration works'));
+  helpSection.addEventListener('toggle', function() {
+    helpArrow.style.transform = helpSection.open ? 'rotate(90deg)' : '';
+  });
+
+  var helpBody = document.createElement('div');
+  helpBody.style.cssText = 'padding:0 20px 16px;font-size:0.8125rem;color:var(--text-secondary);line-height:1.6;';
+
+  function buildHelpParagraph(title, text) {
+    var p = document.createElement('p');
+    p.style.cssText = 'margin:0 0 10px;';
+    var strong = document.createElement('strong');
+    strong.style.color = 'var(--text-primary)';
+    strong.textContent = title;
+    p.appendChild(strong);
+    p.appendChild(document.createTextNode(' \u2014 ' + text));
+    return p;
+  }
+
+  function buildCode(text) {
+    var code = document.createElement('code');
+    code.style.cssText = 'background:var(--bg-input);padding:1px 4px;border-radius:3px;';
+    code.textContent = text;
+    return code;
+  }
+
+  var p1 = buildHelpParagraph('Global Defaults',
+    'The tag map below (Creator, CreatedOn, etc.) applies to all enrolled subscriptions. These are configured in the Function App environment settings and cannot be changed from this UI.');
+  var p2 = buildHelpParagraph('Custom Overrides',
+    'Click a subscription card, then "+ Add Custom Config" to override global defaults for that subscription. You can add extra tags, change overwrite behavior, add resource-type rules, and specify ignore patterns.');
+
+  var p3 = document.createElement('p');
+  p3.style.cssText = 'margin:0 0 10px;';
+  var p3strong = document.createElement('strong');
+  p3strong.style.color = 'var(--text-primary)';
+  p3strong.textContent = 'Tag Overrides';
+  p3.appendChild(p3strong);
+  p3.appendChild(document.createTextNode(' \u2014 Add or replace tags for a specific subscription. Use '));
+  p3.appendChild(buildCode('{caller}'));
+  p3.appendChild(document.createTextNode(' for the user who created the resource or '));
+  p3.appendChild(buildCode('{timestamp}'));
+  p3.appendChild(document.createTextNode(' for the event time.'));
+
+  var p4 = document.createElement('p');
+  p4.style.cssText = 'margin:0 0 10px;';
+  var p4strong = document.createElement('strong');
+  p4strong.style.color = 'var(--text-primary)';
+  p4strong.textContent = 'Resource Type Rules';
+  p4.appendChild(p4strong);
+  p4.appendChild(document.createTextNode(' \u2014 Target specific resource types (e.g. '));
+  p4.appendChild(buildCode('Microsoft.Compute/virtualMachines'));
+  p4.appendChild(document.createTextNode(') to add extra tags or exclude certain tags from being applied.'));
+
+  var p5 = document.createElement('p');
+  p5.style.cssText = 'margin:0;';
+  var p5strong = document.createElement('strong');
+  p5strong.style.color = 'var(--text-primary)';
+  p5strong.textContent = 'Ignore Patterns';
+  p5.appendChild(p5strong);
+  p5.appendChild(document.createTextNode(' \u2014 Wildcard patterns for resource IDs to skip entirely. Example: '));
+  p5.appendChild(buildCode('/subscriptions/*/resourceGroups/rg-infra/*'));
+  p5.appendChild(document.createTextNode(' skips all resources in the rg-infra resource group.'));
+
+  helpBody.appendChild(p1);
+  helpBody.appendChild(p2);
+  helpBody.appendChild(p3);
+  helpBody.appendChild(p4);
+  helpBody.appendChild(p5);
+
+  helpSection.appendChild(helpSummary);
+  helpSection.appendChild(helpBody);
+  panel.appendChild(helpSection);
+
   // ── Global Default Tag Map (always visible, read-only) ──────────────────
   var globalSection = buildSection(
     'Global Default Tag Map',
@@ -133,19 +216,24 @@ function renderSubscriptionsTab(enrolled) {
     return;
   }
 
-  // Card grid — each sub emits a card + hidden inline editor
+  // Card grid — cards only (no editors inside the grid)
   var grid = document.createElement('div');
   grid.className = 'card-grid';
+
+  // Editor container sits below the grid so editors don't disrupt card layout
+  var editorContainer = document.createElement('div');
+  editorContainer.className = 'editor-container';
 
   enrolled.forEach(function(sub) {
     var card = buildEnrolledCard(sub);
     grid.appendChild(card);
 
     var editor = buildInlineEditor(sub);
-    grid.appendChild(editor);
+    editorContainer.appendChild(editor);
   });
 
   panel.appendChild(grid);
+  panel.appendChild(editorContainer);
 
   // If an editor was open before re-render, re-open it
   if (_openEditorSubId) {
@@ -190,10 +278,15 @@ function buildEnrolledCard(sub) {
   var badges = document.createElement('div');
   badges.style.cssText = 'display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0;';
 
+  var isDegraded = isActive && sub.rbacStatus === 'degraded';
+
   var statusBadge = document.createElement('span');
   if (isNotEnrolled) {
     statusBadge.className = 'badge badge-warning';
     statusBadge.textContent = 'Not Enrolled';
+  } else if (isDegraded) {
+    statusBadge.className = 'badge badge-warning';
+    statusBadge.textContent = 'Degraded';
   } else if (isActive) {
     statusBadge.className = 'badge badge-enabled';
     statusBadge.textContent = 'Active';
@@ -224,6 +317,15 @@ function buildEnrolledCard(sub) {
     notEnrolledMsg.style.cssText = 'color:var(--warning);font-size:0.875rem;';
     notEnrolledMsg.textContent = 'Not enrolled \u2014 run the enrollment template to start tagging this subscription';
     body.appendChild(notEnrolledMsg);
+  } else if (isDegraded) {
+    var degradedMsg = document.createElement('div');
+    degradedMsg.style.cssText = 'color:var(--warning);font-size:0.875rem;margin-bottom:8px;';
+    degradedMsg.textContent = 'Event Grid is active but the function app\u2019s managed identity is missing required RBAC roles (Reader + Tag Contributor). Tagging will silently fail.';
+    body.appendChild(degradedMsg);
+    var fixHint = document.createElement('div');
+    fixHint.style.cssText = 'color:var(--text-secondary);font-size:0.8125rem;';
+    fixHint.textContent = 'Fix: assign Reader and Tag Contributor roles to the function app\u2019s managed identity on this subscription.';
+    body.appendChild(fixHint);
   } else if (!isActive) {
     var pausedMsg = document.createElement('div');
     pausedMsg.style.cssText = 'color:var(--warning);font-size:0.875rem;';
@@ -302,7 +404,7 @@ function buildEnrolledCard(sub) {
   var toggleLabel = document.createElement('span');
   toggleLabel.className = 'toggle-label';
   toggleLabel.setAttribute('data-toggle-label', sub.subscriptionId);
-  toggleLabel.textContent = isNotEnrolled ? 'Not enrolled' : isActive ? 'Tagging active' : 'Tagging paused';
+  toggleLabel.textContent = isNotEnrolled ? 'Not enrolled' : isDegraded ? 'Tagging degraded' : isActive ? 'Tagging active' : 'Tagging paused';
 
   toggleWrapper.appendChild(toggleInput);
   toggleWrapper.appendChild(toggleTrack);
@@ -753,6 +855,39 @@ function buildTagOverrideRow(tagName, tagValue, overwrite) {
   return row;
 }
 
+function addJsonValidation(textarea, expectArray) {
+  var errorEl = document.createElement('div');
+  errorEl.style.cssText = 'font-size:0.75rem;color:var(--error);margin-top:4px;display:none;';
+
+  textarea.addEventListener('blur', function() {
+    var val = textarea.value.trim();
+    if (!val) {
+      textarea.style.borderColor = '';
+      errorEl.style.display = 'none';
+      return;
+    }
+    try {
+      var parsed = JSON.parse(val);
+      if (expectArray && !Array.isArray(parsed)) {
+        throw new Error('Expected a JSON array, e.g. ["Creator", "CreatedOn"]');
+      }
+      textarea.style.borderColor = 'var(--success)';
+      errorEl.style.display = 'none';
+      // Auto-format valid JSON
+      textarea.value = JSON.stringify(parsed, null, 2);
+      // Clear success border after a moment
+      setTimeout(function() { textarea.style.borderColor = ''; }, 1500);
+    } catch (e) {
+      textarea.style.borderColor = 'var(--error)';
+      errorEl.textContent = e.message;
+      errorEl.style.display = 'block';
+    }
+  });
+
+  // Insert error element after textarea
+  textarea.parentNode.appendChild(errorEl);
+}
+
 function buildResourceTypeRuleRow(resourceType, rule) {
   var additionalTags = rule.additionalTags || {};
   var excludeTags = rule.excludeTags || [];
@@ -803,6 +938,7 @@ function buildResourceTypeRuleRow(resourceType, rule) {
 
   additionalTagsGroup.appendChild(additionalTagsLabel);
   additionalTagsGroup.appendChild(additionalTagsTextarea);
+  addJsonValidation(additionalTagsTextarea, false);
   row.appendChild(additionalTagsGroup);
 
   var excludeTagsGroup = document.createElement('div');
@@ -821,6 +957,7 @@ function buildResourceTypeRuleRow(resourceType, rule) {
 
   excludeTagsGroup.appendChild(excludeTagsLabel);
   excludeTagsGroup.appendChild(excludeTagsTextarea);
+  addJsonValidation(excludeTagsTextarea, true);
   row.appendChild(excludeTagsGroup);
 
   return row;
