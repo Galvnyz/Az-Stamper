@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "6937891597891385198"
+      "templateHash": "8442371770122403079"
     }
   },
   "parameters": {
@@ -26,14 +26,13 @@
     },
     "functionAppName": {
       "type": "string",
-      "defaultValue": "func-az-stamper",
       "metadata": {
-        "description": "Name for the function app."
+        "description": "Globally unique name for the function app (becomes <name>.azurewebsites.net)."
       }
     },
     "appInsightsName": {
       "type": "string",
-      "defaultValue": "ai-az-stamper",
+      "defaultValue": "[format('{0}-ai', parameters('functionAppName'))]",
       "metadata": {
         "description": "Name for the Application Insights instance."
       }
@@ -54,6 +53,13 @@
       "defaultValue": "https://github.com/Galvnyz/Az-Stamper/releases/latest/download/az-stamper.zip",
       "metadata": {
         "description": "URL of the function app deployment package (pre-filled with latest release)."
+      }
+    },
+    "swaLocation": {
+      "type": "string",
+      "defaultValue": "eastus2",
+      "metadata": {
+        "description": "Location for the Static Web App. SWA Free tier is only available in select regions (westus2, centralus, eastus2, westeurope, eastasia)."
       }
     }
   },
@@ -100,6 +106,9 @@
           },
           "packageUrl": {
             "value": "[parameters('packageUrl')]"
+          },
+          "swaLocation": {
+            "value": "[parameters('swaLocation')]"
           }
         },
         "template": {
@@ -109,7 +118,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "4948122144119748193"
+              "templateHash": "12826718682399709165"
             }
           },
           "parameters": {
@@ -137,6 +146,13 @@
             "swaName": {
               "type": "string",
               "defaultValue": "[format('{0}-config', parameters('functionAppName'))]"
+            },
+            "swaLocation": {
+              "type": "string",
+              "defaultValue": "eastus2",
+              "metadata": {
+                "description": "Location for the Static Web App. SWA Free tier is only available in select regions (westus2, centralus, eastus2, westeurope, eastasia)."
+              }
             },
             "workbookName": {
               "type": "string",
@@ -585,7 +601,7 @@
                     "value": "[parameters('swaName')]"
                   },
                   "location": {
-                    "value": "[parameters('location')]"
+                    "value": "[parameters('swaLocation')]"
                   },
                   "tags": {
                     "value": "[parameters('tags')]"

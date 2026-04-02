@@ -10,11 +10,11 @@ param resourceGroupName string = 'rg-az-stamper'
 @maxLength(24)
 param storageAccountName string
 
-@description('Name for the function app.')
-param functionAppName string = 'func-az-stamper'
+@description('Globally unique name for the function app (becomes <name>.azurewebsites.net).')
+param functionAppName string
 
 @description('Name for the Application Insights instance.')
-param appInsightsName string = 'ai-az-stamper'
+param appInsightsName string = '${functionAppName}-ai'
 
 @description('Environment tag value. Defaults to prod for self-service deployments (main.bicep defaults to dev for CI/CD).')
 @allowed(['dev', 'prod'])
@@ -22,6 +22,9 @@ param environment string = 'prod'
 
 @description('URL of the function app deployment package (pre-filled with latest release).')
 param packageUrl string = 'https://github.com/Galvnyz/Az-Stamper/releases/latest/download/az-stamper.zip'
+
+@description('Location for the Static Web App. SWA Free tier is only available in select regions (westus2, centralus, eastus2, westeurope, eastasia).')
+param swaLocation string = 'eastus2'
 
 // 1. Create resource group
 resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
@@ -45,6 +48,7 @@ module hub 'main.bicep' = {
     appInsightsName: appInsightsName
     environment: environment
     packageUrl: packageUrl
+    swaLocation: swaLocation
   }
 }
 
