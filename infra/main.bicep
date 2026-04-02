@@ -8,8 +8,12 @@ param logAnalyticsName string = '${functionAppName}-law'
 param environment string = 'dev'
 param swaName string = '${functionAppName}-config'
 
-@description('Location for the Static Web App. SWA Free tier is only available in select regions (westus2, centralus, eastus2, westeurope, eastasia).')
+@description('Location for the Static Web App. SWA Free tier is only available in select regions.')
+@allowed(['westus2', 'centralus', 'eastus2', 'westeurope', 'eastasia'])
 param swaLocation string = 'eastus2'
+
+@description('GitHub repository URL. Change this if deploying from a fork.')
+param repositoryUrl string = 'https://github.com/Galvnyz/Az-Stamper'
 param workbookName string = 'Az-Stamper Activity Dashboard'
 
 @description('URL of the function app deployment package. Leave empty for CI/CD zip-push deployment.')
@@ -100,6 +104,7 @@ module swa 'modules/swa.bicep' = {
     name: swaName
     location: swaLocation
     tags: tags
+    repositoryUrl: repositoryUrl
   }
 }
 

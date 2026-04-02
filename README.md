@@ -16,7 +16,7 @@
 <p align="center">
   <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fdeploy.json%3Fv%3D2"><img src="https://img.shields.io/badge/Deploy_Hub_to_Azure-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white" alt="Deploy Hub to Azure" /></a>
   &nbsp;
-  <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json"><img src="https://img.shields.io/badge/Enroll_Additional_Sub-00A4EF?style=for-the-badge&logo=microsoftazure&logoColor=white" alt="Enroll Additional Subscription" /></a>
+  <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json%3Fv%3D2"><img src="https://img.shields.io/badge/Enroll_Additional_Sub-00A4EF?style=for-the-badge&logo=microsoftazure&logoColor=white" alt="Enroll Additional Subscription" /></a>
 </p>
 
 ---
@@ -427,7 +427,7 @@ Subscriptions not explicitly configured receive the global default tags automati
 
 ### Enroll an Additional Subscription
 
-[![Enroll Additional Subscription](https://img.shields.io/badge/Enroll_Additional_Sub-00A4EF?style=for-the-badge&logo=microsoftazure&logoColor=white)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json)
+[![Enroll Additional Subscription](https://img.shields.io/badge/Enroll_Additional_Sub-00A4EF?style=for-the-badge&logo=microsoftazure&logoColor=white)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json%3Fv%3D2)
 
 **Important:** Switch to the subscription you want to enroll before clicking the button. The template deploys Event Grid resources into the target subscription and looks up the function app in the hub subscription.
 
