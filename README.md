@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fdeploy.json"><img src="https://img.shields.io/badge/Deploy_Hub_to_Azure-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white" alt="Deploy Hub to Azure" /></a>
+  <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fdeploy.json%3Fv%3D2"><img src="https://img.shields.io/badge/Deploy_Hub_to_Azure-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white" alt="Deploy Hub to Azure" /></a>
   &nbsp;
   <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fenroll.json"><img src="https://img.shields.io/badge/Enroll_Additional_Sub-00A4EF?style=for-the-badge&logo=microsoftazure&logoColor=white" alt="Enroll Additional Subscription" /></a>
 </p>
@@ -176,7 +176,7 @@ One click deploys the hub **and** enrolls the deploying subscription for tagging
 
 #### Step 1: Deploy and enroll
 
-[![Deploy Hub to Azure](https://img.shields.io/badge/Deploy_Hub_to_Azure-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fdeploy.json)
+[![Deploy Hub to Azure](https://img.shields.io/badge/Deploy_Hub_to_Azure-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FGalvnyz%2FAz-Stamper%2Fmain%2Finfra%2Fdeploy.json%3Fv%3D2)
 
 1. Click the **Deploy Hub to Azure** button
 2. The Azure portal opens a **Custom deployment** form. Fill in the required fields:
