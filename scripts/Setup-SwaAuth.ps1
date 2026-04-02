@@ -12,7 +12,8 @@
 
 .PARAMETER FunctionAppName
     Name of the Az-Stamper function app. The SWA name is derived as
-    '{FunctionAppName}-config'. Defaults to 'func-az-stamper'.
+    '{FunctionAppName}-config'. If omitted, the script auto-discovers
+    the function app from the resource group.
 
 .PARAMETER AppDisplayName
     Display name for the Entra ID app registration.
@@ -22,7 +23,7 @@
     ./Setup-SwaAuth.ps1
 
 .EXAMPLE
-    ./Setup-SwaAuth.ps1 -ResourceGroupName 'rg-az-stamper-dev' -FunctionAppName 'func-az-stamper-dev'
+    ./Setup-SwaAuth.ps1 -ResourceGroupName 'rg-az-stamper-dev' -FunctionAppName 'func-azstamper-dev'
 #>
 [CmdletBinding()]
 param(
@@ -30,13 +31,30 @@ param(
     [string]$ResourceGroupName = 'rg-az-stamper',
 
     [Parameter()]
-    [string]$FunctionAppName = 'func-az-stamper',
+    [string]$FunctionAppName,
 
     [Parameter()]
     [string]$AppDisplayName = 'Az-Stamper-SWA'
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Auto-discover function app if not specified
+if (-not $FunctionAppName) {
+    $funcApps = Get-AzWebApp -ResourceGroupName $ResourceGroupName -ErrorAction Stop |
+        Where-Object { $_.Kind -match 'functionapp' }
+    if ($funcApps.Count -eq 0) {
+        Write-Error "No function app found in resource group '$ResourceGroupName'. Specify -FunctionAppName explicitly."
+        return
+    }
+    if ($funcApps.Count -gt 1) {
+        Write-Error "Multiple function apps found in '$ResourceGroupName': $($funcApps.Name -join ', '). Specify -FunctionAppName explicitly."
+        return
+    }
+    $FunctionAppName = $funcApps[0].Name
+    Write-Host "Auto-discovered function app: $FunctionAppName" -ForegroundColor DarkGray
+}
+
 $swaName = "$FunctionAppName-config"
 
 Write-Host ""
