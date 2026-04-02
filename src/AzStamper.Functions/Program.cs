@@ -10,7 +10,6 @@ using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.ApplicationInsights;
 using Microsoft.Graph;
 
 var builder = FunctionsApplication.CreateBuilder(args);
@@ -18,15 +17,19 @@ var builder = FunctionsApplication.CreateBuilder(args);
 builder.Services.AddApplicationInsightsTelemetryWorkerService();
 builder.Services.ConfigureFunctionsApplicationInsights();
 
-// ConfigureFunctionsApplicationInsights() sets a default filter that blocks Information-level
-// logs from reaching Application Insights. Override it so our stamping traces flow through.
+// ConfigureFunctionsApplicationInsights() adds a default filter that sets Warning as the
+// minimum level for the Application Insights provider, blocking our Information-level traces.
+// Remove ALL such blanket filters so host.json logLevel settings are respected.
 builder.Logging.Services.Configure<LoggerFilterOptions>(options =>
 {
-    var aiFilter = options.Rules.FirstOrDefault(r =>
-        r.ProviderName == typeof(ApplicationInsightsLoggerProvider).FullName
-        && string.IsNullOrEmpty(r.CategoryName));
-    if (aiFilter is not null)
-        options.Rules.Remove(aiFilter);
+    var blanketFilters = options.Rules
+        .Where(r => string.IsNullOrEmpty(r.CategoryName)
+                     && r.LogLevel is not null
+                     && r.LogLevel >= LogLevel.Warning
+                     && !string.IsNullOrEmpty(r.ProviderName))
+        .ToList();
+    foreach (var f in blanketFilters)
+        options.Rules.Remove(f);
 });
 
 builder.Services.Configure<StamperConfig>(
