@@ -474,4 +474,174 @@ public class StampOrchestratorTests
         _tagService.Verify(x => x.SetTagsAsync(
             It.IsAny<string>(), It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
+
+    [Fact]
+    public async Task SkipsSelfTriggeredEvent_BySelfAppName()
+    {
+        var resourceId = "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1";
+        _callerResolver
+            .Setup(x => x.ResolveDisplayNameAsync("sp-id-func", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("func-azstamper-pcxd");
+
+        var config = new StamperConfig
+        {
+            TagMap = new Dictionary<string, TagEntry>
+            {
+                ["Creator"] = new() { Value = "{caller}", Overwrite = false }
+            },
+            IgnorePatterns = new List<string>(),
+            SelfAppName = "func-azstamper-pcxd"
+        };
+
+        var orchestrator = CreateOrchestrator(config);
+        var evt = new ResourceEvent
+        {
+            ResourceId = resourceId,
+            Caller = null,
+            PrincipalType = "ServicePrincipal",
+            PrincipalId = "sp-id-func"
+        };
+
+        await orchestrator.ProcessAsync(evt);
+
+        _tagService.Verify(x => x.SetTagsAsync(
+            It.IsAny<string>(), It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SelfAppNameCheck_IsCaseInsensitive()
+    {
+        var resourceId = "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1";
+        _callerResolver
+            .Setup(x => x.ResolveDisplayNameAsync("sp-id-func", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("Func-AzStamper-Pcxd");
+
+        var config = new StamperConfig
+        {
+            TagMap = new Dictionary<string, TagEntry>
+            {
+                ["Creator"] = new() { Value = "{caller}", Overwrite = false }
+            },
+            IgnorePatterns = new List<string>(),
+            SelfAppName = "func-azstamper-pcxd"
+        };
+
+        var orchestrator = CreateOrchestrator(config);
+        var evt = new ResourceEvent
+        {
+            ResourceId = resourceId,
+            Caller = null,
+            PrincipalType = "ServicePrincipal",
+            PrincipalId = "sp-id-func"
+        };
+
+        await orchestrator.ProcessAsync(evt);
+
+        _tagService.Verify(x => x.SetTagsAsync(
+            It.IsAny<string>(), It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SelfAppNameCheck_SkippedWhenNotConfigured()
+    {
+        var resourceId = "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1";
+        _callerResolver
+            .Setup(x => x.ResolveDisplayNameAsync("sp-id-other", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("other-service");
+        _tagService
+            .Setup(x => x.GetTagsAsync(resourceId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, string>());
+        _tagService
+            .Setup(x => x.SetTagsAsync(resourceId, It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var config = new StamperConfig
+        {
+            TagMap = new Dictionary<string, TagEntry>
+            {
+                ["Creator"] = new() { Value = "{caller}", Overwrite = false }
+            },
+            IgnorePatterns = new List<string>(),
+            SelfAppName = null
+        };
+
+        var orchestrator = CreateOrchestrator(config);
+        var evt = new ResourceEvent
+        {
+            ResourceId = resourceId,
+            Caller = null,
+            PrincipalType = "ServicePrincipal",
+            PrincipalId = "sp-id-other"
+        };
+
+        await orchestrator.ProcessAsync(evt);
+
+        _tagService.Verify(x => x.SetTagsAsync(
+            resourceId, It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task SkipsOverwriteTag_WhenValueUnchanged()
+    {
+        var resourceId = "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1";
+        _tagService
+            .Setup(x => x.GetTagsAsync(resourceId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, string>
+            {
+                ["Creator"] = "alice@contoso.com",
+                ["CreatedOn"] = "2026-01-01T00:00:00Z",
+                ["StampedBy"] = "Az-Stamper",
+                ["LastModifiedBy"] = "alice@contoso.com"
+            });
+
+        Dictionary<string, string>? capturedTags = null;
+        _tagService
+            .Setup(x => x.SetTagsAsync(resourceId, It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, Dictionary<string, string>, CancellationToken>((_, tags, _) => capturedTags = tags)
+            .ReturnsAsync(true);
+
+        var orchestrator = CreateOrchestrator();
+        var evt = new ResourceEvent { ResourceId = resourceId, Caller = "alice@contoso.com" };
+
+        await orchestrator.ProcessAsync(evt);
+
+        // LastModifiedBy should NOT be in the applied set since value is unchanged
+        // But LastModifiedOn (timestamp) WILL be applied since it always differs
+        if (capturedTags is not null)
+        {
+            Assert.False(capturedTags.ContainsKey("LastModifiedBy"),
+                "LastModifiedBy should be skipped when value is unchanged");
+        }
+    }
+
+    [Fact]
+    public async Task AppliesOverwriteTag_WhenValueDiffers()
+    {
+        var resourceId = "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1";
+        _tagService
+            .Setup(x => x.GetTagsAsync(resourceId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, string>
+            {
+                ["Creator"] = "bob@contoso.com",
+                ["CreatedOn"] = "2026-01-01T00:00:00Z",
+                ["StampedBy"] = "Az-Stamper",
+                ["LastModifiedBy"] = "bob@contoso.com"
+            });
+
+        Dictionary<string, string>? capturedTags = null;
+        _tagService
+            .Setup(x => x.SetTagsAsync(resourceId, It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, Dictionary<string, string>, CancellationToken>((_, tags, _) => capturedTags = tags)
+            .ReturnsAsync(true);
+
+        var orchestrator = CreateOrchestrator();
+        var evt = new ResourceEvent { ResourceId = resourceId, Caller = "alice@contoso.com" };
+
+        await orchestrator.ProcessAsync(evt);
+
+        Assert.NotNull(capturedTags);
+        Assert.True(capturedTags.ContainsKey("LastModifiedBy"),
+            "LastModifiedBy should be applied when value differs");
+        Assert.Equal("alice@contoso.com", capturedTags["LastModifiedBy"]);
+    }
 }

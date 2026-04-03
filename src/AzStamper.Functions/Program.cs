@@ -35,6 +35,14 @@ builder.Logging.Services.Configure<LoggerFilterOptions>(options =>
 builder.Services.Configure<StamperConfig>(
     builder.Configuration.GetSection("StamperConfig"));
 
+builder.Services.PostConfigure<StamperConfig>(config =>
+{
+    if (string.IsNullOrEmpty(config.SelfAppName))
+    {
+        config.SelfAppName = Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME");
+    }
+});
+
 var credential = new DefaultAzureCredential();
 
 builder.Services.AddSingleton(new ArmClient(credential));
