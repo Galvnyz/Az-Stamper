@@ -102,6 +102,16 @@ public class StampOrchestrator
             }
         }
 
+        // Secondary self-trigger check: compare resolved caller name against our own app name
+        if (!string.IsNullOrEmpty(_globalConfig.SelfAppName) &&
+            string.Equals(caller, _globalConfig.SelfAppName, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogInformation(
+                "Skipping self-triggered event for {ResourceId} — caller '{Caller}' matches self app name",
+                evt.ResourceId, caller);
+            return;
+        }
+
         _logger.LogInformation("Processing {ResourceId} — caller: {Caller}, config: {ConfigSource}",
             evt.ResourceId, caller, ruleSet.ConfigSource);
 
@@ -149,6 +159,15 @@ public class StampOrchestrator
                 _logger.LogWarning("Tag '{Key}' value exceeds 256 chars ({Length}) — truncating", key, value.Length);
                 value = value[..256];
             }
+
+            // Skip if existing tag already has the same value (prevents no-op ARM writes that trigger events)
+            if (existingTags.TryGetValue(key, out var existingValue) &&
+                string.Equals(existingValue, value, StringComparison.Ordinal))
+            {
+                _logger.LogDebug("Tag '{Key}' unchanged on {ResourceId} — skipping", key, evt.ResourceId);
+                continue;
+            }
+
             tagsToApply[key] = value;
         }
 
