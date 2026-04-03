@@ -80,6 +80,26 @@ resource storageContributorRole 'Microsoft.Authorization/roleAssignments@2022-04
   }
 }
 
+resource queueDataContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccountName, functionAppName, '974c5e8b-45b9-4653-ba55-5f855dd0fb88')
+  scope: storageAccountRef
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '974c5e8b-45b9-4653-ba55-5f855dd0fb88')
+    principalId: functionApp.outputs.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource tableDataContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccountName, functionAppName, '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3')
+  scope: storageAccountRef
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3')
+    principalId: functionApp.outputs.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // Reference the storage account for RBAC scoping
 resource storageAccountRef 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
   name: storageAccountName
