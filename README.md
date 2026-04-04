@@ -42,6 +42,7 @@
 - [CI/CD](#cicd)
 - [Development](#development)
 - [Cost](#cost)
+- [Troubleshooting](#troubleshooting)
 - [License](#license)
 
 ---
@@ -86,7 +87,7 @@ Az-Stamper uses three Azure services working together:
 
 **Azure Event Grid** is a messaging service built into Azure. It watches for things happening in your subscription (resources created, deleted, modified) and can route those events to handlers. Az-Stamper registers as a handler for `ResourceWriteSuccess` events — the event type Azure fires whenever a resource is created or updated successfully.
 
-**Azure Functions** is a serverless compute service — you deploy code that runs only when triggered, and you pay only for the time it executes. Az-Stamper uses a **Flex Consumption** plan, which means it scales to zero when idle (costing nothing) and spins up automatically when an event arrives. For a typical dev/test subscription, the monthly cost is effectively zero (well within Azure's free grant of 1 million executions/month).
+**Azure Functions** is a serverless compute service — you deploy code that runs only when triggered, and you pay only for the time it executes. Az-Stamper uses a **Consumption (Y1)** plan, which means it scales to zero when idle (costing nothing) and spins up automatically when an event arrives. For a typical dev/test subscription, the monthly cost is effectively zero (well within Azure's free grant of 1 million executions/month).
 
 **Managed Identity** is how the function authenticates to Azure without passwords or API keys. When deployed, the function app gets a system-assigned identity (like a service account) that Azure manages automatically. Bicep assigns this identity the permissions it needs: `Tag Contributor` to write tags, and `Reader` to look up who Service Principals are.
 
@@ -101,11 +102,11 @@ Azure Subscription
   │
   └─ Resource Group: rg-az-stamper-dev
         │
-        ├─ Function App (Flex Consumption, .NET 8, Linux)
+        ├─ Function App (Consumption Y1, .NET 8, Linux)
         │     └─ ResourceStamper function (Event Grid trigger)
         │
         ├─ Storage Account (function runtime, managed identity auth)
-        ├─ App Service Plan (Flex Consumption — serverless)
+        ├─ App Service Plan (Consumption — serverless)
         ├─ Application Insights (monitoring & logging)
         └─ Log Analytics Workspace (centralized log storage)
 ```
@@ -330,7 +331,7 @@ The command outputs three values you'll need for later steps. Save them:
 
 ### Step 5: Deploy Function Code
 
-Azure Functions Core Tools handles the packaging and deployment correctly for Flex Consumption (which uses blob-based deployment under the hood).
+Azure Functions Core Tools handles the packaging and deployment correctly for the Consumption plan.
 
 ```bash
 cd src/AzStamper.Functions
@@ -411,7 +412,9 @@ Az-Stamper's function app uses a **system-assigned managed identity** — an aut
 | **Tag Contributor** | Subscription | Read existing tags and write new ones on any resource |
 | **Reader** | Subscription | Look up resource details and Service Principal information |
 | **Storage Blob Data Owner** | Storage Account | Function runtime needs blob access for deployment packages |
-| **Storage Account Contributor** | Storage Account | Function runtime needs file share access |
+| **Storage Queue Data Contributor** | Storage Account | Function runtime needs queue access for internal coordination |
+| **Storage Table Data Contributor** | Storage Account | Function runtime needs table access for trigger state |
+| **Storage Account Contributor** | Storage Account | Function runtime needs management access for file shares |
 | **Directory.Read.All** (Graph API) | Entra ID tenant | Resolve Service Principal GUIDs to display names (optional) |
 
 ## Multi-Subscription Enrollment
@@ -557,7 +560,63 @@ infra/
 
 ## Cost
 
-On a Flex Consumption plan, Az-Stamper costs effectively **$0/month** for small to medium subscriptions. Azure provides a free grant of 1 million executions and 400,000 GB-seconds per month. A typical dev subscription generating a few dozen resource events per day won't come close to these limits. The only fixed cost is the storage account (~$0.02/month).
+On a Consumption plan, Az-Stamper costs effectively **$0/month** for small to medium subscriptions. Azure provides a free grant of 1 million executions and 400,000 GB-seconds per month. A typical dev subscription generating a few dozen resource events per day won't come close to these limits. The only fixed cost is the storage account (~$0.02/month).
+
+## Troubleshooting
+
+### Tags not appearing on resources
+
+| Check | Command | What to look for |
+|-------|---------|-----------------|
+| **Function app running?** | `az functionapp show --name <func> --resource-group <rg> --query state` | Should return `"Running"`. If 503, check WEBSITE_RUN_FROM_PACKAGE URL and storage RBAC. |
+| **Event Grid provider registered?** | `az provider show --namespace Microsoft.EventGrid --query registrationState` | Must be `"Registered"`. If not: `az provider register --namespace Microsoft.EventGrid` |
+| **Event subscription exists?** | `az eventgrid system-topic event-subscription list --system-topic-name evgt-az-stamper --resource-group <rg>` | Should show `evgs-az-stamper` with `provisioningState: Succeeded` |
+| **Events being delivered?** | Check Event Grid metrics in the portal: System Topic → Metrics → Delivery Success/Fail Count | If delivery fails show "Busy", the function is cold-starting. Wait 2-3 minutes and retry. |
+| **Function receiving events?** | Application Insights → Logs → `traces \| where message contains "Stamped" \| order by timestamp desc` | Should show recent stamp operations. If empty, events aren't reaching the function. |
+| **Resource type ignored?** | Check `StamperConfig__IgnorePatterns__*` app settings | The resource's provider path may match an ignore pattern. |
+
+### Function app returning 503
+
+The Consumption plan scales to zero when idle. A 503 can mean:
+
+1. **Cold start** — first request after idle takes 10-30 seconds. Event Grid retries automatically; tags appear after 1-2 minutes.
+2. **Bad deployment package** — verify `WEBSITE_RUN_FROM_PACKAGE` URL is accessible: `curl -s -o /dev/null -w "%{http_code}" "<url>"`. Should return 200. Check that the URL has a `?` before the SAS token parameters.
+3. **Missing storage RBAC** — the function's managed identity needs `Storage Blob Data Owner`, `Storage Queue Data Contributor`, and `Storage Table Data Contributor` on the storage account. Check with: `az role assignment list --assignee <principalId> --all`
+
+### Event Grid subscription not delivering
+
+If the system topic exists but events aren't flowing:
+
+1. Verify the event subscription endpoint type is `AzureFunction` (not `WebHook`): `az eventgrid system-topic event-subscription show --name evgs-az-stamper --system-topic-name evgt-az-stamper --resource-group <rg> --query destination.endpointType`
+2. Check the `resourceId` points to the correct function: `...Microsoft.Web/sites/<func>/functions/ResourceStamper`
+3. If the event subscription is broken, redeploy via Bicep — don't manually delete and recreate:
+   ```bash
+   az deployment sub create --location <region> --template-file infra/enroll.bicep \
+     --parameters functionAppName='<func>' resourceGroupName='<rg>'
+   ```
+
+### Config UI (SWA) not loading
+
+1. Verify the SWA is deployed: `az staticwebapp show --name <func>-config --resource-group <rg>`
+2. Check that `app-config.js` was generated (not the `.sample` file): look in `swa/js/app-config.js`
+3. Re-run the setup script: `pwsh -File scripts/Setup-SwaAuth.ps1`
+
+### Useful diagnostic queries (Application Insights → Logs)
+
+```kql
+// Recent stamp operations
+traces
+| where timestamp > ago(1h)
+| where message contains "Stamped" or message contains "skipping" or message contains "Failed"
+| project timestamp, message
+| order by timestamp desc
+
+// Function invocation success/failure
+requests
+| where timestamp > ago(24h)
+| where name == "ResourceStamper"
+| summarize Succeeded=countif(success), Failed=countif(not(success)) by bin(timestamp, 1h)
+```
 
 ## License
 
