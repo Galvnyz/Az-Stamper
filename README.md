@@ -243,6 +243,41 @@ The script creates an Entra ID app registration, generates the config file, and 
 
 ---
 
+### Azure Government (GCC High)
+
+Az-Stamper runs in **Azure Government** (GCC High / DoD) from the same codebase — the templates are cloud-aware and resolve Gov endpoints automatically (`core.usgovcloudapi.net`, `login.microsoftonline.us`, `management.usgovcloudapi.net`, `graph.microsoft.us`) via Bicep's `environment()` function and matching app settings.
+
+**Two differences from commercial Azure:**
+
+- **No Config UI.** Azure Static Web Apps is not available in Azure Government, so deploy with `deploySwa=false`. The core tagging engine is unaffected; manage tag rules via app settings / the config blob instead.
+- **Deploy via CLI, not the portal button.** The Deploy-to-Azure buttons target the commercial portal (`portal.azure.com`). In Gov, deploy the Bicep directly.
+
+```powershell
+# 1. Connect to Azure Government
+Connect-AzAccount -Environment AzureUSGovernment
+# (Azure CLI equivalent: az cloud set --name AzureUSGovernment ; az login)
+
+# 2. Register resource providers on the target subscription
+foreach ($rp in 'Microsoft.Web','Microsoft.EventGrid','Microsoft.Storage','Microsoft.Insights','Microsoft.OperationalInsights') {
+  az provider register --namespace $rp
+}
+
+# 3. Deploy the hub and enroll the deploying subscription (Config UI skipped)
+az deployment sub create `
+  --location usgovvirginia `
+  --template-file infra/deploy.bicep `
+  --parameters storageAccountName='stazstampergov' `
+               functionAppName='func-az-stamper-gov' `
+               environment='prod' `
+               deploySwa=false
+```
+
+Then verify tagging end-to-end exactly as in [Deploy to Azure → Step 2](#step-2-verify-it-works), and optionally grant the managed identity `Directory.Read.All` on the **Gov** Microsoft Graph (run while connected to `AzureUSGovernment`) so service-principal tags show display names instead of GUIDs — see [Grant Graph API Permission](#step-7-grant-graph-api-permission-optional).
+
+> CI/CD into Azure Government (Gov GitHub Actions OIDC federation, `portal.azure.us` deploy button) is not yet wired up — use the CLI flow above.
+
+---
+
 ### Developer Setup (CI/CD)
 
 If you're contributing to Az-Stamper or want to deploy via GitHub Actions CI/CD instead of the one-click button, you'll need these tools:

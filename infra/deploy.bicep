@@ -30,6 +30,9 @@ param swaLocation string = 'eastus2'
 @description('GitHub repository URL. Change this if deploying from a fork.')
 param repositoryUrl string = 'https://github.com/Galvnyz/Az-Stamper'
 
+@description('Deploy the Static Web App config UI. Set false for Azure Government (GCC High) — Static Web Apps is not available there.')
+param deploySwa bool = true
+
 // 1. Create resource group
 resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   name: resourceGroupName
@@ -54,6 +57,7 @@ module hub 'main.bicep' = {
     packageUrl: packageUrl
     swaLocation: swaLocation
     repositoryUrl: repositoryUrl
+    deploySwa: deploySwa
   }
 }
 
@@ -80,4 +84,4 @@ module eventGrid 'modules/eventGrid.bicep' = {
 output functionAppName string = hub.outputs.functionAppName
 output functionAppId string = hub.outputs.functionAppId
 output principalId string = hub.outputs.principalId
-output swaHostname string = hub.outputs.swaHostname
+output swaHostname string = deploySwa ? hub.outputs.swaHostname : ''

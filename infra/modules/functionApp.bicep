@@ -45,6 +45,18 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
           value: 'dotnet-isolated'
         }
         {
+          // Drives cloud-aware ArmClient/GraphServiceClient construction in Program.cs.
+          // Resolves to 'AzureCloud' (commercial) or 'AzureUSGovernment' (GCC High).
+          name: 'AzureCloud__Name'
+          value: environment().name
+        }
+        {
+          // Steers DefaultAzureCredential to the correct authority per cloud:
+          // login.microsoftonline.com (commercial) vs login.microsoftonline.us (Gov).
+          name: 'AZURE_AUTHORITY_HOST'
+          value: environment().authentication.loginEndpoint
+        }
+        {
           name: 'AzureWebJobsStorage__blobServiceUri'
           value: 'https://${storageAccountName}.blob.${environment().suffixes.storage}'
         }

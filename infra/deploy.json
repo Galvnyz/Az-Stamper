@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "10894445080767067777"
+      "templateHash": "11980633865588620304"
     }
   },
   "parameters": {
@@ -75,6 +75,13 @@
       "metadata": {
         "description": "GitHub repository URL. Change this if deploying from a fork."
       }
+    },
+    "deploySwa": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Deploy the Static Web App config UI. Set false for Azure Government (GCC High) — Static Web Apps is not available there."
+      }
     }
   },
   "variables": {
@@ -126,6 +133,9 @@
           },
           "repositoryUrl": {
             "value": "[parameters('repositoryUrl')]"
+          },
+          "deploySwa": {
+            "value": "[parameters('deploySwa')]"
           }
         },
         "template": {
@@ -135,7 +145,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "9530053918342509823"
+              "templateHash": "12969493894191892838"
             }
           },
           "parameters": {
@@ -183,6 +193,13 @@
               "defaultValue": "https://github.com/Galvnyz/Az-Stamper",
               "metadata": {
                 "description": "GitHub repository URL. Change this if deploying from a fork."
+              }
+            },
+            "deploySwa": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Deploy the Static Web App config UI. Set false for Azure Government (GCC High) — Static Web Apps is not available there."
               }
             },
             "workbookName": {
@@ -480,7 +497,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.41.2.15936",
-                      "templateHash": "12818644373940051961"
+                      "templateHash": "12131441809069433922"
                     }
                   },
                   "parameters": {
@@ -539,7 +556,7 @@
                         "siteConfig": {
                           "linuxFxVersion": "DOTNET-ISOLATED|8.0",
                           "minTlsVersion": "1.2",
-                          "appSettings": "[concat(createArray(createObject('name', 'FUNCTIONS_EXTENSION_VERSION', 'value', '~4'), createObject('name', 'FUNCTIONS_WORKER_RUNTIME', 'value', 'dotnet-isolated'), createObject('name', 'AzureWebJobsStorage__blobServiceUri', 'value', format('https://{0}.blob.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'AzureWebJobsStorage__queueServiceUri', 'value', format('https://{0}.queue.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'AzureWebJobsStorage__tableServiceUri', 'value', format('https://{0}.table.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'value', parameters('appInsightsConnectionString')), createObject('name', 'StamperConfig__TagMap__Creator__Value', 'value', '{caller}'), createObject('name', 'StamperConfig__TagMap__Creator__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__TagMap__CreatedOn__Value', 'value', '{timestamp}'), createObject('name', 'StamperConfig__TagMap__CreatedOn__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__TagMap__LastModifiedBy__Value', 'value', '{caller}'), createObject('name', 'StamperConfig__TagMap__LastModifiedBy__Overwrite', 'value', 'true'), createObject('name', 'StamperConfig__TagMap__LastModifiedOn__Value', 'value', '{timestamp}'), createObject('name', 'StamperConfig__TagMap__LastModifiedOn__Overwrite', 'value', 'true'), createObject('name', 'StamperConfig__TagMap__StampedBy__Value', 'value', 'Az-Stamper'), createObject('name', 'StamperConfig__TagMap__StampedBy__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__IgnorePatterns__0', 'value', 'Microsoft.Resources/deployments'), createObject('name', 'StamperConfig__IgnorePatterns__1', 'value', 'Microsoft.Resources/tags'), createObject('name', 'StamperConfig__IgnorePatterns__2', 'value', 'Microsoft.Network/frontdoor'), createObject('name', 'StamperConfig__IgnorePatterns__3', 'value', 'Microsoft.Authorization/'), createObject('name', 'StamperConfig__IgnorePatterns__4', 'value', 'Microsoft.Resources/subscriptions'), createObject('name', 'StamperConfig__IgnorePatterns__5', 'value', 'Microsoft.ClassicCompute/'), createObject('name', 'StamperConfig__IgnorePatterns__6', 'value', 'Microsoft.Insights/diagnosticSettings'), createObject('name', 'StamperConfig__IgnorePatterns__7', 'value', 'Microsoft.Security/'), createObject('name', 'StamperConfig__IgnorePatterns__8', 'value', 'Microsoft.EventGrid/'), createObject('name', 'StamperConfig__ConfigBlobUri', 'value', format('https://{0}.blob.{1}/config/stamper.json', parameters('storageAccountName'), environment().suffixes.storage))), if(not(equals(parameters('packageUrl'), '')), createArray(createObject('name', 'WEBSITE_RUN_FROM_PACKAGE', 'value', parameters('packageUrl'))), createArray()))]"
+                          "appSettings": "[concat(createArray(createObject('name', 'FUNCTIONS_EXTENSION_VERSION', 'value', '~4'), createObject('name', 'FUNCTIONS_WORKER_RUNTIME', 'value', 'dotnet-isolated'), createObject('name', 'AzureCloud__Name', 'value', environment().name), createObject('name', 'AZURE_AUTHORITY_HOST', 'value', environment().authentication.loginEndpoint), createObject('name', 'AzureWebJobsStorage__blobServiceUri', 'value', format('https://{0}.blob.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'AzureWebJobsStorage__queueServiceUri', 'value', format('https://{0}.queue.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'AzureWebJobsStorage__tableServiceUri', 'value', format('https://{0}.table.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'value', parameters('appInsightsConnectionString')), createObject('name', 'StamperConfig__TagMap__Creator__Value', 'value', '{caller}'), createObject('name', 'StamperConfig__TagMap__Creator__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__TagMap__CreatedOn__Value', 'value', '{timestamp}'), createObject('name', 'StamperConfig__TagMap__CreatedOn__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__TagMap__LastModifiedBy__Value', 'value', '{caller}'), createObject('name', 'StamperConfig__TagMap__LastModifiedBy__Overwrite', 'value', 'true'), createObject('name', 'StamperConfig__TagMap__LastModifiedOn__Value', 'value', '{timestamp}'), createObject('name', 'StamperConfig__TagMap__LastModifiedOn__Overwrite', 'value', 'true'), createObject('name', 'StamperConfig__TagMap__StampedBy__Value', 'value', 'Az-Stamper'), createObject('name', 'StamperConfig__TagMap__StampedBy__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__IgnorePatterns__0', 'value', 'Microsoft.Resources/deployments'), createObject('name', 'StamperConfig__IgnorePatterns__1', 'value', 'Microsoft.Resources/tags'), createObject('name', 'StamperConfig__IgnorePatterns__2', 'value', 'Microsoft.Network/frontdoor'), createObject('name', 'StamperConfig__IgnorePatterns__3', 'value', 'Microsoft.Authorization/'), createObject('name', 'StamperConfig__IgnorePatterns__4', 'value', 'Microsoft.Resources/subscriptions'), createObject('name', 'StamperConfig__IgnorePatterns__5', 'value', 'Microsoft.ClassicCompute/'), createObject('name', 'StamperConfig__IgnorePatterns__6', 'value', 'Microsoft.Insights/diagnosticSettings'), createObject('name', 'StamperConfig__IgnorePatterns__7', 'value', 'Microsoft.Security/'), createObject('name', 'StamperConfig__IgnorePatterns__8', 'value', 'Microsoft.EventGrid/'), createObject('name', 'StamperConfig__ConfigBlobUri', 'value', format('https://{0}.blob.{1}/config/stamper.json', parameters('storageAccountName'), environment().suffixes.storage))), if(not(equals(parameters('packageUrl'), '')), createArray(createObject('name', 'WEBSITE_RUN_FROM_PACKAGE', 'value', parameters('packageUrl'))), createArray()))]"
                         }
                       },
                       "dependsOn": [
@@ -647,6 +664,7 @@
               ]
             },
             {
+              "condition": "[parameters('deploySwa')]",
               "type": "Microsoft.Resources/deployments",
               "apiVersion": "2025-04-01",
               "name": "swa",
@@ -753,7 +771,7 @@
             },
             "swaHostname": {
               "type": "string",
-              "value": "[reference(resourceId('Microsoft.Resources/deployments', 'swa'), '2025-04-01').outputs.defaultHostname.value]"
+              "value": "[coalesce(tryGet(if(parameters('deploySwa'), reference(resourceId('Microsoft.Resources/deployments', 'swa'), '2025-04-01'), null()), 'outputs', 'defaultHostname', 'value'), '')]"
             },
             "appInsightsId": {
               "type": "string",
@@ -765,7 +783,7 @@
             },
             "swaName": {
               "type": "string",
-              "value": "[reference(resourceId('Microsoft.Resources/deployments', 'swa'), '2025-04-01').outputs.staticWebAppName.value]"
+              "value": "[coalesce(tryGet(if(parameters('deploySwa'), reference(resourceId('Microsoft.Resources/deployments', 'swa'), '2025-04-01'), null()), 'outputs', 'staticWebAppName', 'value'), '')]"
             }
           }
         }
@@ -950,7 +968,7 @@
     },
     "swaHostname": {
       "type": "string",
-      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'hub'), '2025-04-01').outputs.swaHostname.value]"
+      "value": "[if(parameters('deploySwa'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'hub'), '2025-04-01').outputs.swaHostname.value, '')]"
     }
   }
 }

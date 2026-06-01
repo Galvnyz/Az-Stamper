@@ -45,8 +45,23 @@ builder.Services.PostConfigure<StamperConfig>(config =>
 
 var credential = new DefaultAzureCredential();
 
-builder.Services.AddSingleton(new ArmClient(credential));
-builder.Services.AddSingleton(new GraphServiceClient(credential));
+// Cloud-aware client construction. Bicep sets AzureCloud__Name from environment().name,
+// so the same build deploys to both Azure commercial ("AzureCloud") and Azure Government
+// GCC High ("AzureUSGovernment"). DefaultAzureCredential picks up the matching authority
+// from the AZURE_AUTHORITY_HOST app setting (also emitted by Bicep), so it needs no branch.
+var cloudName = builder.Configuration["AzureCloud:Name"];
+var isGovCloud = string.Equals(cloudName, "AzureUSGovernment", StringComparison.OrdinalIgnoreCase);
+
+var armClientOptions = new ArmClientOptions
+{
+    Environment = isGovCloud ? ArmEnvironment.AzureGovernment : ArmEnvironment.AzurePublicCloud
+};
+builder.Services.AddSingleton(new ArmClient(credential, defaultSubscriptionId: null, armClientOptions));
+
+var graphHost = isGovCloud ? "graph.microsoft.us" : "graph.microsoft.com";
+var graphScopes = new[] { $"https://{graphHost}/.default" };
+var graphBaseUrl = $"https://{graphHost}/v1.0";
+builder.Services.AddSingleton(new GraphServiceClient(credential, graphScopes, graphBaseUrl));
 builder.Services.AddSingleton<IGraphServicePrincipalClient, GraphServicePrincipalClient>();
 builder.Services.AddSingleton<IArmTagClient, ArmTagClient>();
 builder.Services.AddSingleton<ICallerResolver, CallerResolver>();

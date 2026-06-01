@@ -14,6 +14,10 @@ param swaLocation string = 'eastus2'
 
 @description('GitHub repository URL. Change this if deploying from a fork.')
 param repositoryUrl string = 'https://github.com/Galvnyz/Az-Stamper'
+
+@description('Deploy the Static Web App config UI. Set false for Azure Government (GCC High) — Static Web Apps is not available there.')
+param deploySwa bool = true
+
 param workbookName string = 'Az-Stamper Activity Dashboard'
 
 @description('URL of the function app deployment package. Leave empty for CI/CD zip-push deployment.')
@@ -117,8 +121,9 @@ module workbook 'modules/workbook.bicep' = {
   }
 }
 
-// Static Web App for config management UI
-module swa 'modules/swa.bicep' = {
+// Static Web App for config management UI.
+// Skipped in Azure Government (GCC High) — Static Web Apps is not available there.
+module swa 'modules/swa.bicep' = if (deploySwa) {
   name: 'swa'
   params: {
     name: swaName
@@ -131,7 +136,7 @@ module swa 'modules/swa.bicep' = {
 output functionAppName string = functionApp.outputs.functionAppName
 output functionAppId string = functionApp.outputs.functionAppId
 output principalId string = functionApp.outputs.principalId
-output swaHostname string = swa.outputs.defaultHostname
+output swaHostname string = swa.?outputs.defaultHostname ?? ''
 output appInsightsId string = monitoring.outputs.appInsightsId
 output storageAccountName string = storage.outputs.storageAccountName
-output swaName string = swa.outputs.staticWebAppName
+output swaName string = swa.?outputs.staticWebAppName ?? ''
