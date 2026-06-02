@@ -3,10 +3,12 @@ param eventSubscriptionName string = 'evgs-az-stamper'
 param functionAppId string
 param subscriptionId string
 param location string = 'global'
+param tags object = {}
 
 resource systemTopic 'Microsoft.EventGrid/systemTopics@2022-06-15' = {
   name: systemTopicName
   location: location
+  tags: tags
   properties: {
     source: '/subscriptions/${subscriptionId}'
     topicType: 'Microsoft.Resources.Subscriptions'

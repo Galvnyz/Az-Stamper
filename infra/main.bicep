@@ -18,6 +18,16 @@ param repositoryUrl string = 'https://github.com/Galvnyz/Az-Stamper'
 @description('Deploy the Static Web App config UI. Set false for Azure Government (GCC High) — Static Web Apps is not available there.')
 param deploySwa bool = true
 
+@description('OS for the function hosting plan. Windows Consumption has full log streaming + Kudu (Linux Consumption does not) at identical cost. Use Windows for Azure Government.')
+@allowed(['Linux', 'Windows'])
+param functionAppOs string = 'Linux'
+
+@description('Use identity-based (keyless) host storage. Set false on Windows Consumption (needs a connection-string content share). Harden back to true once on Flex/Premium.')
+param useIdentityStorage bool = true
+
+@description('Cost center tag applied to all Az-Stamper resources.')
+param costCenter string = 'Overhead'
+
 param workbookName string = 'Az-Stamper Activity Dashboard'
 
 @description('URL of the function app deployment package. Leave empty for CI/CD zip-push deployment.')
@@ -27,6 +37,7 @@ param tags object = {
   Project: 'Az-Stamper'
   ManagedBy: 'Bicep'
   Environment: environment
+  CostCenter: costCenter
 }
 // StamperConfig is defined as individual __ delimited app settings in functionApp.bicep
 
@@ -50,7 +61,7 @@ module monitoring 'modules/monitoring.bicep' = {
   }
 }
 
-// Function app depends on storage (needs blob endpoint) and monitoring
+// Function app depends on storage (needs the account to exist for endpoint/key) and monitoring
 module functionApp 'modules/functionApp.bicep' = {
   name: 'functionApp'
   params: {
@@ -60,7 +71,12 @@ module functionApp 'modules/functionApp.bicep' = {
     storageAccountName: storageAccountName
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
     packageUrl: packageUrl
+    functionAppOs: functionAppOs
+    useIdentityStorage: useIdentityStorage
   }
+  // Explicit dependency: connection-string host storage calls listKeys() on the account,
+  // which requires it to already exist.
+  dependsOn: [storage]
 }
 
 // Storage RBAC — assigned after function app exists (needs principalId)

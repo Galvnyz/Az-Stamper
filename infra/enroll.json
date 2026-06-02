@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.41.2.15936",
-      "templateHash": "18011706357660430158"
+      "version": "0.43.8.12551",
+      "templateHash": "12095697434609524587"
     }
   },
   "parameters": {
@@ -49,10 +49,23 @@
       "metadata": {
         "description": "Name for the Event Grid event subscription"
       }
+    },
+    "costCenter": {
+      "type": "string",
+      "defaultValue": "Overhead",
+      "metadata": {
+        "description": "Cost center tag applied to all Az-Stamper resources."
+      }
     }
   },
   "variables": {
-    "location": "[deployment().location]"
+    "location": "[deployment().location]",
+    "tags": {
+      "Project": "Az-Stamper",
+      "ManagedBy": "Bicep",
+      "Purpose": "Event Grid enrollment",
+      "CostCenter": "[parameters('costCenter')]"
+    }
   },
   "resources": [
     {
@@ -60,11 +73,7 @@
       "apiVersion": "2024-03-01",
       "name": "[parameters('enrollmentResourceGroupName')]",
       "location": "[variables('location')]",
-      "tags": {
-        "Project": "Az-Stamper",
-        "ManagedBy": "Bicep",
-        "Purpose": "Event Grid enrollment"
-      }
+      "tags": "[variables('tags')]"
     },
     {
       "type": "Microsoft.Resources/deployments",
@@ -88,6 +97,9 @@
           },
           "subscriptionId": {
             "value": "[subscription().subscriptionId]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
           }
         },
         "template": {
@@ -96,8 +108,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "8737465453289392663"
+              "version": "0.43.8.12551",
+              "templateHash": "3910803723495738719"
             }
           },
           "parameters": {
@@ -118,6 +130,10 @@
             "location": {
               "type": "string",
               "defaultValue": "global"
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {}
             }
           },
           "resources": [
@@ -126,6 +142,7 @@
               "apiVersion": "2022-06-15",
               "name": "[parameters('systemTopicName')]",
               "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
               "properties": {
                 "source": "[format('/subscriptions/{0}', parameters('subscriptionId'))]",
                 "topicType": "Microsoft.Resources.Subscriptions"
@@ -190,8 +207,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "252838764718187273"
+              "version": "0.43.8.12551",
+              "templateHash": "6423424187872452091"
             }
           },
           "parameters": {

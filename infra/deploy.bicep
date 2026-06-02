@@ -33,15 +33,31 @@ param repositoryUrl string = 'https://github.com/Galvnyz/Az-Stamper'
 @description('Deploy the Static Web App config UI. Set false for Azure Government (GCC High) — Static Web Apps is not available there.')
 param deploySwa bool = true
 
+@description('OS for the function hosting plan. Use Windows for Azure Government (full log streaming + Kudu at identical cost; Linux Consumption has neither).')
+@allowed(['Linux', 'Windows'])
+param functionAppOs string = 'Linux'
+
+@description('Use identity-based (keyless) host storage. Set false on Windows Consumption (needs a connection-string content share).')
+param useIdentityStorage bool = true
+
+@description('Create the Event Grid enrollment (system topic + subscription). The AzureFunction destination validates the function endpoint, so the FUNCTION CODE MUST BE DEPLOYED FIRST. For a build-your-own-code flow: deploy with false, push code, then re-deploy with true.')
+param enableEnrollment bool = true
+
+@description('Cost center tag applied to all Az-Stamper resources.')
+param costCenter string = 'Overhead'
+
+var tags = {
+  Project: 'Az-Stamper'
+  ManagedBy: 'Bicep'
+  Environment: environment
+  CostCenter: costCenter
+}
+
 // 1. Create resource group
 resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   name: resourceGroupName
   location: location
-  tags: {
-    Project: 'Az-Stamper'
-    ManagedBy: 'Bicep'
-    Environment: environment
-  }
+  tags: tags
 }
 
 // 2. Deploy all hub resources into the resource group
@@ -58,6 +74,9 @@ module hub 'main.bicep' = {
     swaLocation: swaLocation
     repositoryUrl: repositoryUrl
     deploySwa: deploySwa
+    functionAppOs: functionAppOs
+    useIdentityStorage: useIdentityStorage
+    costCenter: costCenter
   }
 }
 
@@ -70,13 +89,16 @@ module subscriptionRbac 'modules/subscriptionRbac.bicep' = {
   }
 }
 
-// 4. Enroll the hub subscription — Event Grid system topic + event subscription
-module eventGrid 'modules/eventGrid.bicep' = {
+// 4. Enroll the hub subscription — Event Grid system topic + event subscription.
+//    Conditional: the AzureFunction destination validates the function webhook endpoint,
+//    which 404s until the function code is deployed. Enroll AFTER code is published.
+module eventGrid 'modules/eventGrid.bicep' = if (enableEnrollment) {
   name: 'az-stamper-enrollment'
   scope: rg
   params: {
     functionAppId: hub.outputs.functionAppId
     subscriptionId: subscription().subscriptionId
+    tags: tags
   }
   dependsOn: [subscriptionRbac]
 }

@@ -18,7 +18,17 @@ param systemTopicName string = 'evgt-az-stamper'
 @description('Name for the Event Grid event subscription')
 param eventSubscriptionName string = 'evgs-az-stamper'
 
+@description('Cost center tag applied to all Az-Stamper resources.')
+param costCenter string = 'Overhead'
+
 var location = deployment().location
+
+var tags = {
+  Project: 'Az-Stamper'
+  ManagedBy: 'Bicep'
+  Purpose: 'Event Grid enrollment'
+  CostCenter: costCenter
+}
 
 // Look up the function app in the hub subscription
 resource funcApp 'Microsoft.Web/sites@2023-12-01' existing = {
@@ -30,11 +40,7 @@ resource funcApp 'Microsoft.Web/sites@2023-12-01' existing = {
 resource enrollRg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   name: enrollmentResourceGroupName
   location: location
-  tags: {
-    Project: 'Az-Stamper'
-    ManagedBy: 'Bicep'
-    Purpose: 'Event Grid enrollment'
-  }
+  tags: tags
 }
 
 // 2. Event Grid system topic + event subscription in the spoke RG
@@ -46,6 +52,7 @@ module eventGrid 'modules/eventGrid.bicep' = {
     eventSubscriptionName: eventSubscriptionName
     functionAppId: funcApp.id
     subscriptionId: subscription().subscriptionId
+    tags: tags
   }
 }
 

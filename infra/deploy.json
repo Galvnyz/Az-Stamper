@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.41.2.15936",
-      "templateHash": "11980633865588620304"
+      "version": "0.43.8.12551",
+      "templateHash": "1793482793793604313"
     }
   },
   "parameters": {
@@ -82,10 +82,48 @@
       "metadata": {
         "description": "Deploy the Static Web App config UI. Set false for Azure Government (GCC High) — Static Web Apps is not available there."
       }
+    },
+    "functionAppOs": {
+      "type": "string",
+      "defaultValue": "Linux",
+      "allowedValues": [
+        "Linux",
+        "Windows"
+      ],
+      "metadata": {
+        "description": "OS for the function hosting plan. Use Windows for Azure Government (full log streaming + Kudu at identical cost; Linux Consumption has neither)."
+      }
+    },
+    "useIdentityStorage": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Use identity-based (keyless) host storage. Set false on Windows Consumption (needs a connection-string content share)."
+      }
+    },
+    "enableEnrollment": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Create the Event Grid enrollment (system topic + subscription). The AzureFunction destination validates the function endpoint, so the FUNCTION CODE MUST BE DEPLOYED FIRST. For a build-your-own-code flow: deploy with false, push code, then re-deploy with true."
+      }
+    },
+    "costCenter": {
+      "type": "string",
+      "defaultValue": "Overhead",
+      "metadata": {
+        "description": "Cost center tag applied to all Az-Stamper resources."
+      }
     }
   },
   "variables": {
-    "location": "[deployment().location]"
+    "location": "[deployment().location]",
+    "tags": {
+      "Project": "Az-Stamper",
+      "ManagedBy": "Bicep",
+      "Environment": "[parameters('environment')]",
+      "CostCenter": "[parameters('costCenter')]"
+    }
   },
   "resources": [
     {
@@ -93,11 +131,7 @@
       "apiVersion": "2024-03-01",
       "name": "[parameters('resourceGroupName')]",
       "location": "[variables('location')]",
-      "tags": {
-        "Project": "Az-Stamper",
-        "ManagedBy": "Bicep",
-        "Environment": "[parameters('environment')]"
-      }
+      "tags": "[variables('tags')]"
     },
     {
       "type": "Microsoft.Resources/deployments",
@@ -136,6 +170,15 @@
           },
           "deploySwa": {
             "value": "[parameters('deploySwa')]"
+          },
+          "functionAppOs": {
+            "value": "[parameters('functionAppOs')]"
+          },
+          "useIdentityStorage": {
+            "value": "[parameters('useIdentityStorage')]"
+          },
+          "costCenter": {
+            "value": "[parameters('costCenter')]"
           }
         },
         "template": {
@@ -144,8 +187,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "12969493894191892838"
+              "version": "0.43.8.12551",
+              "templateHash": "10988516060014467571"
             }
           },
           "parameters": {
@@ -202,6 +245,31 @@
                 "description": "Deploy the Static Web App config UI. Set false for Azure Government (GCC High) — Static Web Apps is not available there."
               }
             },
+            "functionAppOs": {
+              "type": "string",
+              "defaultValue": "Linux",
+              "allowedValues": [
+                "Linux",
+                "Windows"
+              ],
+              "metadata": {
+                "description": "OS for the function hosting plan. Windows Consumption has full log streaming + Kudu (Linux Consumption does not) at identical cost. Use Windows for Azure Government."
+              }
+            },
+            "useIdentityStorage": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Use identity-based (keyless) host storage. Set false on Windows Consumption (needs a connection-string content share). Harden back to true once on Flex/Premium."
+              }
+            },
+            "costCenter": {
+              "type": "string",
+              "defaultValue": "Overhead",
+              "metadata": {
+                "description": "Cost center tag applied to all Az-Stamper resources."
+              }
+            },
             "workbookName": {
               "type": "string",
               "defaultValue": "Az-Stamper Activity Dashboard"
@@ -218,7 +286,8 @@
               "defaultValue": {
                 "Project": "Az-Stamper",
                 "ManagedBy": "Bicep",
-                "Environment": "[parameters('environment')]"
+                "Environment": "[parameters('environment')]",
+                "CostCenter": "[parameters('costCenter')]"
               }
             }
           },
@@ -305,8 +374,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.41.2.15936",
-                      "templateHash": "11669557765608801296"
+                      "version": "0.43.8.12551",
+                      "templateHash": "8951856517240159940"
                     }
                   },
                   "parameters": {
@@ -400,8 +469,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.41.2.15936",
-                      "templateHash": "2105674012525231967"
+                      "version": "0.43.8.12551",
+                      "templateHash": "10527214061994909718"
                     }
                   },
                   "parameters": {
@@ -488,6 +557,12 @@
                   },
                   "packageUrl": {
                     "value": "[parameters('packageUrl')]"
+                  },
+                  "functionAppOs": {
+                    "value": "[parameters('functionAppOs')]"
+                  },
+                  "useIdentityStorage": {
+                    "value": "[parameters('useIdentityStorage')]"
                   }
                 },
                 "template": {
@@ -496,8 +571,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.41.2.15936",
-                      "templateHash": "12131441809069433922"
+                      "version": "0.43.8.12551",
+                      "templateHash": "14555649667451794127"
                     }
                   },
                   "parameters": {
@@ -522,7 +597,145 @@
                       "metadata": {
                         "description": "URL of the function app deployment package. Used by Deploy-to-Azure button."
                       }
+                    },
+                    "functionAppOs": {
+                      "type": "string",
+                      "defaultValue": "Linux",
+                      "allowedValues": [
+                        "Linux",
+                        "Windows"
+                      ],
+                      "metadata": {
+                        "description": "OS for the function app hosting plan. Windows Consumption has full log streaming + Kudu; Linux Consumption does not. Both are identically priced."
+                      }
+                    },
+                    "useIdentityStorage": {
+                      "type": "bool",
+                      "defaultValue": true,
+                      "metadata": {
+                        "description": "Use identity-based (managed-identity) host storage. Set false on plans that need a connection-string content share (e.g. Windows Consumption)."
+                      }
                     }
+                  },
+                  "variables": {
+                    "isWindows": "[equals(parameters('functionAppOs'), 'Windows')]",
+                    "identityStorageSettings": [
+                      {
+                        "name": "AzureWebJobsStorage__blobServiceUri",
+                        "value": "[format('https://{0}.blob.{1}', parameters('storageAccountName'), environment().suffixes.storage)]"
+                      },
+                      {
+                        "name": "AzureWebJobsStorage__queueServiceUri",
+                        "value": "[format('https://{0}.queue.{1}', parameters('storageAccountName'), environment().suffixes.storage)]"
+                      },
+                      {
+                        "name": "AzureWebJobsStorage__tableServiceUri",
+                        "value": "[format('https://{0}.table.{1}', parameters('storageAccountName'), environment().suffixes.storage)]"
+                      }
+                    ],
+                    "baseSettings": [
+                      {
+                        "name": "FUNCTIONS_EXTENSION_VERSION",
+                        "value": "~4"
+                      },
+                      {
+                        "name": "FUNCTIONS_WORKER_RUNTIME",
+                        "value": "dotnet-isolated"
+                      },
+                      {
+                        "name": "AzureCloud__Name",
+                        "value": "[environment().name]"
+                      },
+                      {
+                        "name": "AZURE_AUTHORITY_HOST",
+                        "value": "[environment().authentication.loginEndpoint]"
+                      },
+                      {
+                        "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                        "value": "[parameters('appInsightsConnectionString')]"
+                      },
+                      {
+                        "name": "StamperConfig__TagMap__Creator__Value",
+                        "value": "{caller}"
+                      },
+                      {
+                        "name": "StamperConfig__TagMap__Creator__Overwrite",
+                        "value": "false"
+                      },
+                      {
+                        "name": "StamperConfig__TagMap__CreatedOn__Value",
+                        "value": "{timestamp}"
+                      },
+                      {
+                        "name": "StamperConfig__TagMap__CreatedOn__Overwrite",
+                        "value": "false"
+                      },
+                      {
+                        "name": "StamperConfig__TagMap__LastModifiedBy__Value",
+                        "value": "{caller}"
+                      },
+                      {
+                        "name": "StamperConfig__TagMap__LastModifiedBy__Overwrite",
+                        "value": "true"
+                      },
+                      {
+                        "name": "StamperConfig__TagMap__LastModifiedOn__Value",
+                        "value": "{timestamp}"
+                      },
+                      {
+                        "name": "StamperConfig__TagMap__LastModifiedOn__Overwrite",
+                        "value": "true"
+                      },
+                      {
+                        "name": "StamperConfig__TagMap__StampedBy__Value",
+                        "value": "Az-Stamper"
+                      },
+                      {
+                        "name": "StamperConfig__TagMap__StampedBy__Overwrite",
+                        "value": "false"
+                      },
+                      {
+                        "name": "StamperConfig__IgnorePatterns__0",
+                        "value": "Microsoft.Resources/deployments"
+                      },
+                      {
+                        "name": "StamperConfig__IgnorePatterns__1",
+                        "value": "Microsoft.Resources/tags"
+                      },
+                      {
+                        "name": "StamperConfig__IgnorePatterns__2",
+                        "value": "Microsoft.Network/frontdoor"
+                      },
+                      {
+                        "name": "StamperConfig__IgnorePatterns__3",
+                        "value": "Microsoft.Authorization/"
+                      },
+                      {
+                        "name": "StamperConfig__IgnorePatterns__4",
+                        "value": "Microsoft.Resources/subscriptions"
+                      },
+                      {
+                        "name": "StamperConfig__IgnorePatterns__5",
+                        "value": "Microsoft.ClassicCompute/"
+                      },
+                      {
+                        "name": "StamperConfig__IgnorePatterns__6",
+                        "value": "Microsoft.Insights/diagnosticSettings"
+                      },
+                      {
+                        "name": "StamperConfig__IgnorePatterns__7",
+                        "value": "Microsoft.Security/"
+                      },
+                      {
+                        "name": "StamperConfig__IgnorePatterns__8",
+                        "value": "Microsoft.EventGrid/"
+                      },
+                      {
+                        "name": "StamperConfig__ConfigBlobUri",
+                        "value": "[format('https://{0}.blob.{1}/config/stamper.json', parameters('storageAccountName'), environment().suffixes.storage)]"
+                      }
+                    ],
+                    "packageSettings": "[if(not(equals(parameters('packageUrl'), '')), createArray(createObject('name', 'WEBSITE_RUN_FROM_PACKAGE', 'value', parameters('packageUrl'))), createArray())]"
                   },
                   "resources": [
                     {
@@ -531,13 +744,13 @@
                       "name": "[format('{0}-plan', parameters('name'))]",
                       "location": "[parameters('location')]",
                       "tags": "[parameters('tags')]",
-                      "kind": "linux",
+                      "kind": "[if(variables('isWindows'), 'functionapp', 'linux')]",
                       "sku": {
                         "name": "Y1",
                         "tier": "Dynamic"
                       },
                       "properties": {
-                        "reserved": true
+                        "reserved": "[not(variables('isWindows'))]"
                       }
                     },
                     {
@@ -546,7 +759,7 @@
                       "name": "[parameters('name')]",
                       "location": "[parameters('location')]",
                       "tags": "[parameters('tags')]",
-                      "kind": "functionapp,linux",
+                      "kind": "[if(variables('isWindows'), 'functionapp', 'functionapp,linux')]",
                       "identity": {
                         "type": "SystemAssigned"
                       },
@@ -554,9 +767,10 @@
                         "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', format('{0}-plan', parameters('name')))]",
                         "httpsOnly": true,
                         "siteConfig": {
-                          "linuxFxVersion": "DOTNET-ISOLATED|8.0",
+                          "linuxFxVersion": "[if(variables('isWindows'), null(), 'DOTNET-ISOLATED|10.0')]",
+                          "netFrameworkVersion": "[if(variables('isWindows'), 'v10.0', null())]",
                           "minTlsVersion": "1.2",
-                          "appSettings": "[concat(createArray(createObject('name', 'FUNCTIONS_EXTENSION_VERSION', 'value', '~4'), createObject('name', 'FUNCTIONS_WORKER_RUNTIME', 'value', 'dotnet-isolated'), createObject('name', 'AzureCloud__Name', 'value', environment().name), createObject('name', 'AZURE_AUTHORITY_HOST', 'value', environment().authentication.loginEndpoint), createObject('name', 'AzureWebJobsStorage__blobServiceUri', 'value', format('https://{0}.blob.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'AzureWebJobsStorage__queueServiceUri', 'value', format('https://{0}.queue.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'AzureWebJobsStorage__tableServiceUri', 'value', format('https://{0}.table.{1}', parameters('storageAccountName'), environment().suffixes.storage)), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'value', parameters('appInsightsConnectionString')), createObject('name', 'StamperConfig__TagMap__Creator__Value', 'value', '{caller}'), createObject('name', 'StamperConfig__TagMap__Creator__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__TagMap__CreatedOn__Value', 'value', '{timestamp}'), createObject('name', 'StamperConfig__TagMap__CreatedOn__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__TagMap__LastModifiedBy__Value', 'value', '{caller}'), createObject('name', 'StamperConfig__TagMap__LastModifiedBy__Overwrite', 'value', 'true'), createObject('name', 'StamperConfig__TagMap__LastModifiedOn__Value', 'value', '{timestamp}'), createObject('name', 'StamperConfig__TagMap__LastModifiedOn__Overwrite', 'value', 'true'), createObject('name', 'StamperConfig__TagMap__StampedBy__Value', 'value', 'Az-Stamper'), createObject('name', 'StamperConfig__TagMap__StampedBy__Overwrite', 'value', 'false'), createObject('name', 'StamperConfig__IgnorePatterns__0', 'value', 'Microsoft.Resources/deployments'), createObject('name', 'StamperConfig__IgnorePatterns__1', 'value', 'Microsoft.Resources/tags'), createObject('name', 'StamperConfig__IgnorePatterns__2', 'value', 'Microsoft.Network/frontdoor'), createObject('name', 'StamperConfig__IgnorePatterns__3', 'value', 'Microsoft.Authorization/'), createObject('name', 'StamperConfig__IgnorePatterns__4', 'value', 'Microsoft.Resources/subscriptions'), createObject('name', 'StamperConfig__IgnorePatterns__5', 'value', 'Microsoft.ClassicCompute/'), createObject('name', 'StamperConfig__IgnorePatterns__6', 'value', 'Microsoft.Insights/diagnosticSettings'), createObject('name', 'StamperConfig__IgnorePatterns__7', 'value', 'Microsoft.Security/'), createObject('name', 'StamperConfig__IgnorePatterns__8', 'value', 'Microsoft.EventGrid/'), createObject('name', 'StamperConfig__ConfigBlobUri', 'value', format('https://{0}.blob.{1}/config/stamper.json', parameters('storageAccountName'), environment().suffixes.storage))), if(not(equals(parameters('packageUrl'), '')), createArray(createObject('name', 'WEBSITE_RUN_FROM_PACKAGE', 'value', parameters('packageUrl'))), createArray()))]"
+                          "appSettings": "[concat(variables('baseSettings'), if(parameters('useIdentityStorage'), variables('identityStorageSettings'), createArray(createObject('name', 'AzureWebJobsStorage', 'value', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2023-05-01').keys[0].value)), createObject('name', 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', 'value', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2023-05-01').keys[0].value)), createObject('name', 'WEBSITE_CONTENTSHARE', 'value', toLower(parameters('name'))))), variables('packageSettings'))]"
                         }
                       },
                       "dependsOn": [
@@ -581,7 +795,8 @@
                 }
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Resources/deployments', 'monitoring')]"
+                "[resourceId('Microsoft.Resources/deployments', 'monitoring')]",
+                "[resourceId('Microsoft.Resources/deployments', 'storage')]"
               ]
             },
             {
@@ -613,8 +828,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.41.2.15936",
-                      "templateHash": "11265801989622852483"
+                      "version": "0.43.8.12551",
+                      "templateHash": "9410179842253500630"
                     }
                   },
                   "parameters": {
@@ -693,8 +908,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.41.2.15936",
-                      "templateHash": "3999590798322178456"
+                      "version": "0.43.8.12551",
+                      "templateHash": "11848975108272053142"
                     }
                   },
                   "parameters": {
@@ -813,8 +1028,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "252838764718187273"
+              "version": "0.43.8.12551",
+              "templateHash": "6423424187872452091"
             }
           },
           "parameters": {
@@ -854,6 +1069,7 @@
       ]
     },
     {
+      "condition": "[parameters('enableEnrollment')]",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
       "name": "az-stamper-enrollment",
@@ -869,6 +1085,9 @@
           },
           "subscriptionId": {
             "value": "[subscription().subscriptionId]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
           }
         },
         "template": {
@@ -877,8 +1096,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "8737465453289392663"
+              "version": "0.43.8.12551",
+              "templateHash": "3910803723495738719"
             }
           },
           "parameters": {
@@ -899,6 +1118,10 @@
             "location": {
               "type": "string",
               "defaultValue": "global"
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {}
             }
           },
           "resources": [
@@ -907,6 +1130,7 @@
               "apiVersion": "2022-06-15",
               "name": "[parameters('systemTopicName')]",
               "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
               "properties": {
                 "source": "[format('/subscriptions/{0}', parameters('subscriptionId'))]",
                 "topicType": "Microsoft.Resources.Subscriptions"
